@@ -410,12 +410,14 @@ namespace ljson {
 			template<value_concept_t value_t>
 			std::expected<std::monostate, error> set(const value_t& value) {
 				if (not data_is_value())
-					return std::unexpected(error(error_type::wrong_type, "wrong type: can't set value to non-value json-class"));
+					return std::unexpected(
+					    error(error_type::wrong_type, "wrong type: can't set value to non-value json-class"));
 
 				auto& val = std::get<value_or_json_class>(data);
 
 				if (std::holds_alternative<std::shared_ptr<ljson::json>>(val)) {
-					return std::unexpected(error(error_type::wrong_type, "wrong type: can't set value to non-value json-class"));
+					return std::unexpected(
+					    error(error_type::wrong_type, "wrong type: can't set value to non-value json-class"));
 				} else {
 					const auto& struct_val = std::get<std::shared_ptr<struct value>>(val);
 					(*struct_val)	       = value;
@@ -644,9 +646,10 @@ namespace ljson {
 
 	class parser {
 		private:
-			std::shared_ptr<json>	       json_data = std::make_shared<ljson::json>(value_type::object);
+			std::shared_ptr<json> json_data = std::make_shared<ljson::json>(value_type::object);
 
 			void parsing(struct parsing_data& data);
+
 		public:
 			explicit parser();
 			~parser();
@@ -669,7 +672,7 @@ namespace ljson {
 	struct parser_syntax {
 			struct open_bracket {
 					static std::expected<bool, error> handle_open_bracket(struct parsing_data& data) {
-						if (data.line[data.i] == '{') {
+						if (data.line[data.i] == '{' && not value::is_string(data)) {
 							data.hierarchy.push({json_syntax::opening_bracket, data.line_number});
 							return true;
 						}
@@ -794,7 +797,8 @@ namespace ljson {
 
 			struct array {
 					static std::expected<bool, error> handle_array(struct parsing_data& data) {
-						if (data.hierarchy.empty() || end_statement::is_end_statement(data))
+						if (data.hierarchy.empty() || end_statement::is_end_statement(data) ||
+						    value::is_string(data))
 							return false;
 
 						if (data.line[data.i] == '[') {
@@ -880,8 +884,8 @@ namespace ljson {
 
 			struct object {
 					static std::expected<bool, error> handle_object(struct parsing_data& data) {
-
-						if (data.hierarchy.empty() || end_statement::is_end_statement(data))
+						if (data.hierarchy.empty() || end_statement::is_end_statement(data) ||
+						    value::is_string(data))
 							return false;
 
 						if (data.line[data.i] == '{') {
@@ -985,9 +989,9 @@ namespace ljson {
 							return false;
 						else if (is_not_value(data))
 							return false;
-						else if (object::is_object_char(data.line[data.i]))
+						else if (object::is_object_char(data.line[data.i]) && not value::is_string(data))
 							return false;
-						else if (array::is_array_char(data.line[data.i]))
+						else if (array::is_array_char(data.line[data.i]) && not value::is_string(data))
 							return false;
 						else if (end_statement::is_end_statement(data))
 							return false;
@@ -1021,6 +1025,15 @@ namespace ljson {
 							return false;
 						else if (data.value.type != ljson::value_type::string &&
 							 (data.value.value.back() == ' ' || data.value.value.back() == '\t'))
+							return true;
+						else
+							return false;
+					}
+
+					static bool is_string(const struct parsing_data& data) {
+						if (data.hierarchy.empty())
+							return false;
+						else if (data.hierarchy.top().first == json_syntax::string_value)
 							return true;
 						else
 							return false;
@@ -1123,8 +1136,9 @@ namespace ljson {
 							auto ok = data.json_objs.top()->add_value_to_key(data.keys.top().first, data.value);
 							if (not ok) {
 								return std::unexpected(error(error_type::parsing_error,
-								    std::format(
-									"{}", ljson::log("internal parsing error: [adding value to simple_key]"))));
+								    std::format("{}",
+									ljson::log(
+									    "internal parsing error: [adding value to simple_key]"))));
 							}
 						} else if (object::is_object(data)) {
 							auto ok = fill_object_data(data);
@@ -1217,7 +1231,7 @@ namespace ljson {
 
 			struct closing_bracket {
 					static std::expected<bool, error> handle_closing_bracket(struct parsing_data& data) {
-						if (data.line[data.i] != '}')
+						if (data.line[data.i] != '}' || value::is_string(data))
 							return false;
 
 						if (not data.hierarchy.empty() &&
@@ -1360,7 +1374,8 @@ namespace ljson {
 		for (size_t i = 0; i < raw_json.size(); i++) {
 			data.line += raw_json[i];
 
-			if (not data.line.empty() && (data.line.back() == '\n' || data.i == raw_json.size() - 1 || data.line.back() == ',')) {
+			if (not data.line.empty() &&
+			    (data.line.back() == '\n' || data.i == raw_json.size() - 1 || data.line.back() == ',')) {
 				for (data.i = 0; data.i < data.line.size(); data.i++) {
 					this->parsing(data);
 				}
