@@ -644,13 +644,14 @@ namespace ljson {
 
 	class parser {
 		private:
-			std::unique_ptr<std::ifstream> file;
 			std::shared_ptr<json>	       json_data = std::make_shared<ljson::json>(value_type::object);
 
+			void parsing(struct parsing_data& data);
 		public:
-			explicit parser(const std::filesystem::path& path);
+			explicit parser();
 			~parser();
-			std::shared_ptr<json> parse();
+			std::shared_ptr<json> parse(const std::filesystem::path& path);
+			std::shared_ptr<json> parse(const std::string& raw_json);
 	};
 }
 
@@ -1280,23 +1281,10 @@ namespace ljson {
 			};
 	};
 
-	parser::parser(const std::filesystem::path& path) : file(std::make_unique<std::ifstream>(path)) {
-		if (not file->is_open())
-			throw ljson::error(
-			    error_type::filesystem_error, std::format("couldn't open '{}', {}", path.string(), std::strerror(errno)));
+	parser::parser() {
 	}
 
-	parser::~parser() {
-		if (file->is_open())
-			file->close();
-	}
-
-	std::shared_ptr<json> parser::parse() {
-		struct parsing_data data;
-
-		data.json_objs.push(this->json_data);
-		data.keys.push({"", key_type::simple_key});
-
+	void parser::parsing(struct parsing_data& data) {
 		auto done_or_not_ok = [](const std::expected<bool, error>& ok) -> bool {
 			if ((ok && ok.value()) || not ok)
 				return true;
@@ -1311,35 +1299,48 @@ namespace ljson {
 
 		std::expected<bool, error> ok;
 
+		if (parser_syntax::end_statement::run_till_end_of_statement(data))
+			return;
+
+		if (ok = parser_syntax::empty::handle_empty(data); done_or_not_ok(ok)) {
+			throw_error_if_not_ok(ok);
+		} else if (ok = parser_syntax::quotes::handle_quotes(data); done_or_not_ok(ok)) {
+			throw_error_if_not_ok(ok);
+		} else if (ok = parser_syntax::key::handle_key(data); done_or_not_ok(ok)) {
+			throw_error_if_not_ok(ok);
+		} else if (ok = parser_syntax::column::handle_column(data); done_or_not_ok(ok)) {
+			throw_error_if_not_ok(ok);
+		} else if (ok = parser_syntax::value::handle_value(data); done_or_not_ok(ok)) {
+			throw_error_if_not_ok(ok);
+		} else if (ok = parser_syntax::object::handle_object(data); done_or_not_ok(ok)) {
+			throw_error_if_not_ok(ok);
+		} else if (ok = parser_syntax::array::handle_array(data); done_or_not_ok(ok)) {
+			throw_error_if_not_ok(ok);
+		} else if (ok = parser_syntax::end_statement::handle_end_statement(data); done_or_not_ok(ok)) {
+			throw_error_if_not_ok(ok);
+		} else if (ok = parser_syntax::open_bracket::handle_open_bracket(data); done_or_not_ok(ok)) {
+			throw_error_if_not_ok(ok);
+		} else if (ok = parser_syntax::closing_bracket::handle_closing_bracket(data); done_or_not_ok(ok)) {
+			throw_error_if_not_ok(ok);
+		} else if (ok = parser_syntax::syntax_error::handle_syntax_error(data); done_or_not_ok(ok)) {
+			throw_error_if_not_ok(ok);
+		}
+	}
+
+	std::shared_ptr<json> parser::parse(const std::filesystem::path& path) {
+		std::unique_ptr<std::ifstream> file = std::make_unique<std::ifstream>(path);
+		if (not file->is_open())
+			throw ljson::error(
+			    error_type::filesystem_error, std::format("couldn't open '{}', {}", path.string(), std::strerror(errno)));
+		struct parsing_data data;
+
+		data.json_objs.push(this->json_data);
+		data.keys.push({"", key_type::simple_key});
+
 		while (std::getline(*file, data.line)) {
 			data.line += "\n";
 			for (data.i = 0; data.i < data.line.size(); data.i++) {
-				if (parser_syntax::end_statement::run_till_end_of_statement(data))
-					continue;
-
-				if (ok = parser_syntax::empty::handle_empty(data); done_or_not_ok(ok)) {
-					throw_error_if_not_ok(ok);
-				} else if (ok = parser_syntax::quotes::handle_quotes(data); done_or_not_ok(ok)) {
-					throw_error_if_not_ok(ok);
-				} else if (ok = parser_syntax::key::handle_key(data); done_or_not_ok(ok)) {
-					throw_error_if_not_ok(ok);
-				} else if (ok = parser_syntax::column::handle_column(data); done_or_not_ok(ok)) {
-					throw_error_if_not_ok(ok);
-				} else if (ok = parser_syntax::value::handle_value(data); done_or_not_ok(ok)) {
-					throw_error_if_not_ok(ok);
-				} else if (ok = parser_syntax::object::handle_object(data); done_or_not_ok(ok)) {
-					throw_error_if_not_ok(ok);
-				} else if (ok = parser_syntax::array::handle_array(data); done_or_not_ok(ok)) {
-					throw_error_if_not_ok(ok);
-				} else if (ok = parser_syntax::end_statement::handle_end_statement(data); done_or_not_ok(ok)) {
-					throw_error_if_not_ok(ok);
-				} else if (ok = parser_syntax::open_bracket::handle_open_bracket(data); done_or_not_ok(ok)) {
-					throw_error_if_not_ok(ok);
-				} else if (ok = parser_syntax::closing_bracket::handle_closing_bracket(data); done_or_not_ok(ok)) {
-					throw_error_if_not_ok(ok);
-				} else if (ok = parser_syntax::syntax_error::handle_syntax_error(data); done_or_not_ok(ok)) {
-					throw_error_if_not_ok(ok);
-				}
+				this->parsing(data);
 			}
 
 			data.line.clear();
@@ -1348,6 +1349,31 @@ namespace ljson {
 		}
 
 		return this->json_data;
+	}
+
+	std::shared_ptr<json> parser::parse(const std::string& raw_json) {
+		struct parsing_data data;
+
+		data.json_objs.push(this->json_data);
+		data.keys.push({"", key_type::simple_key});
+
+		for (size_t i = 0; i < raw_json.size(); i++) {
+			data.line += raw_json[i];
+
+			if (not data.line.empty() && (data.line.back() == '\n' || data.i == raw_json.size() - 1 || data.line.back() == ',')) {
+				for (data.i = 0; data.i < data.line.size(); data.i++) {
+					this->parsing(data);
+				}
+				data.line.clear();
+
+				data.line_number++;
+			}
+		}
+
+		return this->json_data;
+	}
+
+	parser::~parser() {
 	}
 
 	error::error(error_type err, const std::string& message) : err_type(err), msg(message) {
