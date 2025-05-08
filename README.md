@@ -9,7 +9,7 @@ to use in your project simply #include the <ljson.hpp> header
 
 # tutorial
 
-# reading and writing to files
+### reading and writing to files
 ```cpp
 #include <ljson.hpp>
 #include <exception>
@@ -34,7 +34,7 @@ int main() {
 }
 
 ```
-# accessing and changing/setting values
+### accessing and changing/setting values
 
 ```cpp
 
@@ -113,7 +113,7 @@ int main() {
 
 ```
 
-# castin to a json array and iteration
+### casting to a json array and iteration
 ```cpp
 #include <ljson.hpp>
 #include <exception>
@@ -147,7 +147,7 @@ int main() {
 
 ```
 
-# castin to a json object and iteration
+### casting to a json object and iteration
 ```cpp
 #include <ljson.hpp>
 #include <exception>
@@ -180,3 +180,29 @@ int main() {
 }
 
 ```
+
+
+# author
+
+nodeluna - nodeluna@proton.me
+
+# license
+    Copyright 2025 nodeluna
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+# special thanks to
+
+- **[tomlplusplus]** - for showing how to make a nice API
+
+[tomlplusplus]: https://github.com/marzer/tomlplusplus
