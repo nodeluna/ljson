@@ -113,194 +113,9 @@ namespace ljson {
 	struct value {
 			std::string value;
 			value_type  type = value_type::none;
-	};
 
-	class json;
-
-	template<typename T>
-	concept value_or_jclass_concept_t = std::is_same_v<T, struct value> || std::is_same_v<T, json>;
-
-	template<typename T>
-	concept value_concept_t = std::is_same_v<T, struct value>;
-
-	template<typename T>
-	concept value_or_jclass_concept_ptr_t =
-	    std::is_same_v<T, std::shared_ptr<struct value>> || std::is_same_v<T, std::shared_ptr<json>>;
-
-	class json {
-		private:
-			using value_or_json_class = std::variant<std::shared_ptr<struct value>, std::shared_ptr<json>>;
-			using json_object	  = std::map<std::string, value_or_json_class>;
-			using json_array	  = std::vector<value_or_json_class>;
-			std::variant<json_object, json_array, value_or_json_class> data;
-
-			bool data_is_map() {
-				if (std::holds_alternative<json_object>(data))
-					return true;
-				return false;
-			}
-
-			bool data_is_array() {
-				if (std::holds_alternative<json_array>(data))
-					return true;
-				return false;
-			}
-
-			bool data_is_value() {
-				if (std::holds_alternative<value_or_json_class>(data))
-					return true;
-				return false;
-			}
-
-		public:
-			explicit json() {
-			}
-
-			explicit json(enum value_type type) {
-				if (type == value_type::object) {
-					data = json_object{};
-				} else if (type == value_type::array) {
-					data = json_array{};
-				} else {
-					data = value_or_json_class{};
-				}
-			}
-
-			void handle_std_any(const std::any& any_value, std::function<void(std::any)> insert_func) {
-				if (any_value.type() == typeid(json)) {
-					auto val = std::any_cast<json>(any_value);
-					insert_func(val);
-				} else {
-					struct value value;
-					if (any_value.type() == typeid(bool)) {
-						auto val    = std::any_cast<bool>(any_value);
-						value.type  = value_type::boolean;
-						value.value = (val == true ? "true" : "false");
-						insert_func(value);
-					} else if (any_value.type() == typeid(double)) {
-						auto val    = std::any_cast<double>(any_value);
-						value.type  = value_type::number;
-						value.value = std::to_string(val);
-						insert_func(value);
-					} else if (any_value.type() == typeid(int)) {
-						auto val    = std::any_cast<int>(any_value);
-						value.type  = value_type::number;
-						value.value = std::to_string(val);
-						insert_func(value);
-					} else if (any_value.type() == typeid(float)) {
-						auto val    = std::any_cast<float>(any_value);
-						value.type  = value_type::number;
-						value.value = std::to_string(val);
-						insert_func(value);
-					} else if (any_value.type() == typeid(const char*)) {
-						auto val    = std::any_cast<const char*>(any_value);
-						value.type  = value_type::string;
-						value.value = val;
-						insert_func(value);
-					} else if (any_value.type() == typeid(std::string)) {
-						auto val    = std::any_cast<std::string>(any_value);
-						value.type  = value_type::string;
-						value.value = val;
-						insert_func(value);
-					} else {
-						throw error(error_type::wrong_type,
-						    std::string("unknown type given to json constructor: ") + any_value.type().name());
-					}
-				}
-			}
-
-			json(const std::initializer_list<std::pair<std::string, std::any>>& pairs) : data(json_object{}) {
-				auto& map = std::get<json_object>(data);
-
-				std::string key;
-
-				auto insert_func = [&](const std::any& value) {
-					if (value.type() == typeid(json)) {
-						auto val = std::any_cast<json>(value);
-						map.insert({key, std::make_shared<json>(val)});
-					} else {
-						auto val = std::any_cast<struct value>(value);
-						map.insert({key, std::make_shared<struct value>(val)});
-					}
-				};
-
-				for (const auto& pair : pairs) {
-					key = pair.first;
-					this->handle_std_any(pair.second, insert_func);
-					key.clear();
-				}
-			}
-
-			json(const std::initializer_list<std::any>& val) : data(json_array{}) {
-				auto& vector = std::get<json_array>(data);
-
-				auto insert_func = [&](const std::any& value) {
-					if (value.type() == typeid(json)) {
-						auto val = std::any_cast<json>(value);
-						vector.push_back(std::make_shared<json>(val));
-					} else {
-						auto val = std::any_cast<struct value>(value);
-						vector.push_back(std::make_shared<struct value>(val));
-					}
-				};
-
-				for (const auto& value : val) {
-					this->handle_std_any(value, insert_func);
-				}
-			}
-
-			template<value_or_jclass_concept_t value_t>
-			explicit json(const value_t& value) : data(value_or_json_class{}) {
-				auto& val = std::get<value_or_json_class>(data);
-
-				if (std::is_same<value_t, json>::value) {
-					val = std::make_shared<json>(value);
-				} else {
-					val = std::make_shared<struct value>(value);
-				}
-			}
-
-			template<value_or_jclass_concept_ptr_t value_t>
-			explicit json(const value_t& value) : data(value_or_json_class{}) {
-				auto& val = std::get<value_or_json_class>(data);
-
-				if (std::is_same<value_t, std::shared_ptr<json>>::value) {
-					val = value;
-				} else {
-					val = value;
-				}
-			}
-
-			value_type type() {
-				if (data_is_map())
-					return value_type::object;
-				else if (data_is_array())
-					return value_type::array;
-				else if (data_is_value()) {
-					auto& val = std::get<value_or_json_class>(data);
-					if (std::holds_alternative<std::shared_ptr<json>>(val))
-						return value_type::object;
-					else if (std::holds_alternative<std::shared_ptr<struct value>>(val)) {
-						auto value = std::get<std::shared_ptr<struct value>>(val);
-						if (value->type == ljson::value_type::string)
-							return ljson::value_type::string;
-						else if (value->type == ljson::value_type::boolean)
-							return ljson::value_type::boolean;
-						else if (value->type == ljson::value_type::number)
-							return ljson::value_type::number;
-						else if (value->type == ljson::value_type::null)
-							return ljson::value_type::null;
-						else
-							return ljson::value_type::unknown;
-					} else
-						return value_type::unknown;
-				} else
-					return value_type::unknown;
-			}
-
-			std::string type_name() {
-				auto Type = this->type();
-				switch (Type) {
+			std::string type_name() const {
+				switch (type) {
 					case ljson::value_type::string:
 						return "string";
 					case ljson::value_type::boolean:
@@ -317,344 +132,186 @@ namespace ljson {
 						return "unknown";
 				}
 			}
+	};
 
-			template<value_or_jclass_concept_t value_t>
-			std::expected<std::monostate, error> add_value_to_key(const std::string& key, const value_t& value) {
-				if (not data_is_map()) {
-					return std::unexpected(error(error_type::wrong_type, "wrong type: adding to map"));
-				}
+	class json;
+	class array;
+	class object;
+	class node;
 
-				auto& map = std::get<json_object>(data);
-				map[key]  = std::make_shared<value_t>(value);
+	using json_object = std::map<std::string, class node>;
+	using json_array  = std::vector<class node>;
+	using json_node	  = std::variant<std::shared_ptr<struct value>, std::shared_ptr<ljson::array>, std::shared_ptr<ljson::object>>;
 
-				return std::monostate();
+	class null_value {
+		public:
+			null_value() {
 			}
+	};
 
-			template<value_or_jclass_concept_t value_t>
-			std::expected<std::monostate, error> add_value_to_array(const size_t key, const value_t& value) {
-				if (not data_is_array())
-					return std::unexpected(error(error_type::wrong_type, "wrong type: adding to array"));
+	class node {
+		private:
+			json_node _node;
 
-				auto& vector = std::get<json_array>(data);
-				if (key >= vector.size())
-					return std::unexpected(error(error_type::wronge_index, "wrong index"));
+		protected:
+			void handle_std_any(const std::any& any_value, std::function<void(std::any)> insert_func);
 
-				vector[key] = std::make_shared<value_t>(value);
+		public:
+			explicit node();
+			explicit node(const json_node& n);
+			explicit node(enum value_type type);
+			explicit node(const struct value& value);
+			node(const std::initializer_list<std::pair<std::string, std::any>>& pairs);
+			node(const std::initializer_list<std::any>& val);
 
-				return std::monostate();
-			}
+			std::expected<class ljson::node, error> add_array_to_key(const std::string& key);
+			std::expected<class ljson::node, error> add_object_to_array();
+			std::expected<class ljson::node, error> add_node_to_array(const ljson::node& node);
+			std::expected<class ljson::node, error> add_node_to_array(const size_t index, const ljson::node& node);
+			std::expected<class ljson::node, error> add_object_to_key(const std::string& key);
+			std::expected<class ljson::node, error> add_value_to_key(const std::string& key, const struct value& value);
+			std::expected<class ljson::node, error> add_value_to_array(const struct value& value);
+			std::expected<class ljson::node, error> add_value_to_array(const size_t index, const struct value& value);
+			std::expected<class ljson::node, error> add_node_to_key(const std::string& key, const ljson::node& node);
 
-			template<value_or_jclass_concept_t value_t>
-			std::expected<std::monostate, error> add_value_to_array(const value_t& value) {
-				if (not data_is_array())
-					return std::unexpected(error(error_type::wrong_type, "wrong type: adding to array"));
+			std::shared_ptr<struct value>  as_value() const;
+			std::shared_ptr<ljson::array>  as_array() const;
+			std::shared_ptr<ljson::object> as_object() const;
+			bool			       is_value() const;
+			bool			       is_array() const;
+			bool			       is_object() const;
+			value_type		       type() const;
+			bool			       contains(const std::string& key);
+			class node&		       at(const std::string& object_key);
+			class node&		       at(const size_t array_index);
+			class node&		       operator=(const std::shared_ptr<struct value>& val);
+			class node&		       operator=(const struct value& val);
+			class node&		       operator=(const std::shared_ptr<ljson::array>& arr);
+			class node&		       operator=(const std::shared_ptr<ljson::object>& obj);
 
-				auto& vector = std::get<json_array>(data);
-				vector.push_back(std::make_shared<value_t>(value));
-
-				return std::monostate();
-			}
-
-			std::expected<std::shared_ptr<json>, error> add_object_to_key(const std::string& key) {
-				if (not data_is_map())
-					return std::unexpected(error(error_type::wrong_type, "wrong type: adding to map"));
-
-				auto& map = std::get<json_object>(data);
-				auto& itr = map[key] = std::make_shared<json>(value_type::object);
-
-				const auto& ptr = std::get<std::shared_ptr<json>>(itr);
-
-				return ptr;
-			}
-
-			std::expected<std::monostate, error> add_object_to_key(const std::string& key, const json& json) {
-				if (not data_is_map())
-					return std::unexpected(error(error_type::wrong_type, "wrong type: adding to map"));
-
-				auto& map = std::get<json_object>(data);
-				map[key]  = std::make_shared<ljson::json>(json);
-
-				return std::monostate();
-			}
-
-			std::expected<std::shared_ptr<json>, error> add_object_to_array() {
-				if (not data_is_array())
-					return std::unexpected(error(error_type::wrong_type, "wrong type: adding obj to array"));
-
-				auto& vector = std::get<json_array>(data);
-				vector.push_back(std::make_shared<ljson::json>(value_type::object));
-
-				return std::get<std::shared_ptr<json>>(vector.back());
-			}
-
-			std::expected<std::shared_ptr<json>, error> add_object_to_array(const json& obj) {
-				if (not data_is_array())
-					return std::unexpected(error(error_type::wrong_type, "wrong type: adding obj to array"));
-
-				auto& vector = std::get<json_array>(data);
-				vector.push_back(std::make_shared<ljson::json>(obj));
-
-				return std::get<std::shared_ptr<json>>(vector.back());
-			}
-
-			std::expected<std::shared_ptr<json>, error> add_array_to_key(const std::string& key) {
-				if (not data_is_map())
-					return std::unexpected(error(error_type::wrong_type, "wrong type: adding to map"));
-
-				auto& map = std::get<json_object>(data);
-				auto& itr = map[key] = std::make_shared<json>(value_type::array);
-
-				return std::get<std::shared_ptr<json>>(itr);
-			}
-
-			template<value_concept_t value_t>
-			std::expected<std::monostate, error> set(const value_t& value) {
-				if (not data_is_value())
-					return std::unexpected(
-					    error(error_type::wrong_type, "wrong type: can't set value to non-value json-class"));
-
-				auto& val = std::get<value_or_json_class>(data);
-
-				if (std::holds_alternative<std::shared_ptr<ljson::json>>(val)) {
-					return std::unexpected(
-					    error(error_type::wrong_type, "wrong type: can't set value to non-value json-class"));
-				} else {
-					const auto& struct_val = std::get<std::shared_ptr<struct value>>(val);
-					(*struct_val)	       = value;
-				}
-
-				return std::monostate();
-			}
-
-			std::expected<std::monostate, error> set(const std::string& value) {
-				struct value new_value;
-				new_value.type	= ljson::value_type::string;
-				new_value.value = value;
-
-				this->set(new_value);
-
-				return std::monostate();
-			}
-
-			std::expected<std::monostate, error> set(const double value) {
-				struct value new_value;
-				new_value.type	= ljson::value_type::number;
-				new_value.value = value;
-
-				this->set(new_value);
-
-				return std::monostate();
-			}
-
-			std::expected<std::monostate, error> set(const bool value) {
-				struct value new_value;
-				new_value.type	= ljson::value_type::boolean;
-				new_value.value = (value == true ? "true" : "false");
-
-				this->set(new_value);
-
-				return std::monostate();
-			}
-
-			std::expected<std::monostate, error> set(const char* value) {
-				std::string str = value;
-				this->set(str);
-				return std::monostate();
-			}
-
-			std::expected<std::monostate, error> set(const void* value) {
-				if (value != NULL)
-					return std::unexpected(error(error_type::wrong_type, "setting wrong value for type: 'null'"));
-
-				struct value new_value;
-				new_value.type	= ljson::value_type::null;
-				new_value.value = "null";
-
-				this->set(new_value);
-
-				return std::monostate();
-			}
-
-			std::expected<std::shared_ptr<struct value>, error> get_value() {
-				if (not data_is_value())
-					return std::unexpected(error(error_type::wrong_type, "wrong type: getting value"));
-
-				auto& val = std::get<value_or_json_class>(data);
-
-				if (not std::holds_alternative<std::shared_ptr<struct value>>(val))
-					return std::unexpected(error(error_type::wrong_type, "wrong type: getting value"));
-
-				return std::get<std::shared_ptr<struct value>>(val);
-			}
-
-			bool contains(const std::string& key) {
-				if (not data_is_map())
-					return false;
-
-				auto& map = std::get<json_object>(data);
-				auto  itr = map.find(key);
-
-				if (itr != map.end())
-					return true;
-				else
-					return false;
-			}
+			std::expected<std::monostate, error> set(const struct value& value);
+			std::expected<std::monostate, error> set(const std::string& value);
+			std::expected<std::monostate, error> set(const double value);
+			std::expected<std::monostate, error> set(const bool value);
+			std::expected<std::monostate, error> set(const ljson::null_value value);
+			std::expected<std::monostate, error> set(const char* value);
 
 			void dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf = {' ', 4},
-			    int indent = 0) {
-				auto dump_val = [&indent, &out_func, &indent_conf](const value_or_json_class& value_or_json_class) {
-					if (std::holds_alternative<std::shared_ptr<struct value>>(value_or_json_class)) {
-						auto val = std::get<std::shared_ptr<struct value>>(value_or_json_class);
-						if (val->type == ljson::value_type::string)
-							out_func(std::format("\"{}\"", val->value));
-						else
-							out_func(std::format("{}", val->value));
-					} else {
-						std::get<std::shared_ptr<json>>(value_or_json_class)
-						    ->dump(out_func, indent_conf, indent + indent_conf.second);
-					}
-				};
-				if (data_is_map()) {
-					out_func(std::format("{{\n"));
-					auto&  map   = std::get<json_object>(data);
-					size_t count = 0;
-					for (const auto& pair : map) {
-						out_func(std::format(
-						    "{}\"{}\": ", std::string(indent + indent_conf.second, indent_conf.first), pair.first));
-						dump_val(pair.second);
-
-						if (++count != map.size())
-							out_func(std::format(","));
-
-						out_func(std::format("\n"));
-					}
-					out_func(std::format("{}}}", std::string(indent, indent_conf.first)));
-				} else if (data_is_array()) {
-					out_func(std::format("[\n"));
-					auto&  vector = std::get<json_array>(data);
-					size_t count  = 0;
-					for (const auto& array_value : vector) {
-						out_func(std::format("{}", std::string(indent + indent_conf.second, indent_conf.first)));
-						dump_val(array_value);
-
-						if (++count != vector.size())
-							out_func(std::format(","));
-
-						out_func(std::format("\n"));
-					}
-					out_func(std::format("{}]", std::string(indent, indent_conf.first)));
-				} else if (data_is_value()) {
-					auto& val = std::get<value_or_json_class>(data);
-					dump_val(val);
-				}
-			}
-
-			void dump_to_stdout(const std::pair<char, int>& indent_conf = {' ', 4}) {
-				auto func = [](const std::string& output) { std::cout << output; };
-				this->dump(func, indent_conf);
-			}
-
+			    int indent = 0) const;
+			void dump_to_stdout(const std::pair<char, int>& indent_conf = {' ', 4});
 			std::expected<std::monostate, error> write_to_file(
-			    const std::filesystem::path& path, const std::pair<char, int>& indent_conf = {' ', 4}) {
-				std::ofstream file(path);
-				if (not file.is_open())
-					return std::unexpected(error(error_type::filesystem_error, std::strerror(errno)));
+			    const std::filesystem::path& path, const std::pair<char, int>& indent_conf = {' ', 4});
+	};
 
-				auto func = [&file](const std::string& output) { file << output; };
-				this->dump(func, indent_conf);
-				file.close();
+	class array {
+		private:
+			json_array _array;
 
-				return std::monostate();
+		public:
+			explicit array(const json_array& arr) : _array(arr) {
 			}
 
-			std::expected<std::shared_ptr<json>, error> try_at(const std::string& key) {
-				if (data_is_value()) {
-					auto& val = std::get<value_or_json_class>(data);
-					if (std::holds_alternative<std::shared_ptr<json>>(val))
-						return std::get<std::shared_ptr<json>>(val)->try_at(key);
-				}
-				if (not data_is_map())
-					return std::unexpected(error(error_type::wrong_type, "wrong type"));
-
-				auto& map = std::get<json_object>(data);
-				auto  itr = map.find(key);
-				if (itr == map.end()) {
-					return std::unexpected(error(error_type::key_not_found, "key not found"));
-				}
-
-				if (std::holds_alternative<std::shared_ptr<json>>(itr->second))
-					return std::get<std::shared_ptr<json>>(itr->second);
-				else
-					return std::make_shared<json>(std::get<std::shared_ptr<struct value>>(itr->second));
+			explicit array() {
 			}
 
-			std::expected<std::shared_ptr<json>, error> try_at(const size_t key) {
-				if (not data_is_array())
-					return std::unexpected(error(error_type::wrong_type, "wrong type"));
-
-				auto& vector = std::get<json_array>(data);
-				if (key >= vector.size())
-					return std::unexpected(error(error_type::wronge_index, "wrong index"));
-
-				if (std::holds_alternative<std::shared_ptr<json>>(vector[key]))
-					return std::get<std::shared_ptr<json>>(vector[key]);
-				else
-					return std::make_shared<json>(std::get<std::shared_ptr<struct value>>(vector[key]));
+			void push_back(const class node& element) {
+				return _array.push_back(element);
 			}
 
-			template<typename value_concept_t>
-			json& operator=(const value_concept_t& other) {
-				this->set(other);
-				return *this;
+			void pop_back() {
+				return _array.pop_back();
 			}
 
-			std::shared_ptr<json> at(const std::string& key) {
-				if (data_is_value()) {
-					auto& val = std::get<value_or_json_class>(data);
-					if (std::holds_alternative<std::shared_ptr<json>>(val))
-						return std::get<std::shared_ptr<json>>(val)->at(key);
-				}
-				if (not data_is_map())
-					throw error(error_type::wrong_type, "wrong type, not a map");
-
-				auto& map = std::get<json_object>(data);
-				auto  itr = map.find(key);
-				if (itr == map.end()) {
-					throw error(error_type::key_not_found, "key not found");
-				}
-
-				if (std::holds_alternative<std::shared_ptr<json>>(itr->second))
-					return std::get<std::shared_ptr<json>>(itr->second);
-				else
-					return std::make_shared<json>(std::get<std::shared_ptr<struct value>>(itr->second));
+			class node& front() {
+				return _array.front();
 			}
 
-			std::shared_ptr<json> at(const size_t key) {
-				if (not data_is_array())
-					throw error(error_type::wrong_type, "wrong type, not an array");
+			class node& back() {
+				return _array.back();
+			}
 
-				auto& vector = std::get<json_array>(data);
-				if (key >= vector.size())
-					throw error(error_type::wronge_index, "wrong index");
+			size_t size() {
+				return _array.size();
+			}
 
-				if (std::holds_alternative<std::shared_ptr<json>>(vector[key]))
-					return std::get<std::shared_ptr<json>>(vector[key]);
-				else
-					return std::make_shared<json>(std::get<std::shared_ptr<struct value>>(vector[key]));
+			bool empty() {
+				return _array.empty();
+			}
+
+			json_array::iterator begin() {
+				return _array.begin();
+			}
+
+			json_array::iterator end() {
+				return _array.end();
+			}
+
+			class ljson::node& at(size_t i) {
+				return _array.at(i);
+			}
+
+			class ljson::node& operator[](size_t i) {
+				return _array[i];
+			}
+	};
+
+	class object {
+		private:
+			json_object _object;
+
+		public:
+			explicit object() : _object(json_object{}) {
+			}
+
+			ljson::node insert(const std::string& key, const class node& element) {
+				auto itr = _object[key] = element;
+				return itr;
+			}
+
+			json_object::size_type erase(const std::string& key) {
+				return _object.erase(key);
+			}
+
+			size_t size() {
+				return _object.size();
+			}
+
+			bool empty() {
+				return _object.empty();
+			}
+
+			json_object::iterator find(const std::string& key) {
+				return _object.find(key);
+			}
+
+			json_object::iterator begin() {
+				return _object.begin();
+			}
+
+			json_object::iterator end() {
+				return _object.end();
+			}
+
+			class ljson::node& at(const std::string& key) {
+				return _object[key];
+			}
+
+			class ljson::node& operator[](const std::string& key) {
+				return _object[key];
 			}
 	};
 
 	class parser {
 		private:
-			std::shared_ptr<json> json_data = std::make_shared<ljson::json>(value_type::object);
+			ljson::node json_data = ljson::node(value_type::object);
 
 			void parsing(struct parsing_data& data);
 
 		public:
 			explicit parser();
 			~parser();
-			std::shared_ptr<json> parse(const std::filesystem::path& path);
-			std::shared_ptr<json> parse(const std::string& raw_json);
+			ljson::node parse(const std::filesystem::path& path);
+			ljson::node parse(const std::string& raw_json);
 	};
 }
 
@@ -662,7 +319,7 @@ namespace ljson {
 	struct parsing_data {
 			std::string				     line;
 			std::stack<std::pair<std::string, key_type>> keys;
-			std::stack<std::shared_ptr<json>>	     json_objs;
+			std::stack<ljson::node>			     json_objs;
 			struct value				     value;
 			std::stack<std::pair<json_syntax, size_t>>   hierarchy;
 			size_t					     i		 = 0;
@@ -805,7 +462,7 @@ namespace ljson {
 							data.hierarchy.push({json_syntax::array, data.line_number});
 							data.keys.top().second = key_type::array;
 
-							auto ok = data.json_objs.top()->add_array_to_key(data.keys.top().first);
+							auto ok = data.json_objs.top().add_array_to_key(data.keys.top().first);
 							if (not ok)
 								return std::unexpected(ok.error());
 							data.json_objs.push(ok.value());
@@ -828,7 +485,7 @@ namespace ljson {
 					}
 
 					static bool is_array(const struct parsing_data& data) {
-						if (not data.json_objs.empty() && data.json_objs.top()->type() == value_type::array)
+						if (not data.json_objs.empty() && data.json_objs.top().type() == value_type::array)
 							return true;
 						return false;
 					}
@@ -890,12 +547,12 @@ namespace ljson {
 
 						if (data.line[data.i] == '{') {
 							if (array::is_array(data)) {
-								auto ok = data.json_objs.top()->add_object_to_array();
+								auto ok = data.json_objs.top().add_object_to_array();
 								if (not ok)
 									return std::unexpected(ok.error());
 								data.json_objs.push(ok.value());
 							} else {
-								auto ok = data.json_objs.top()->add_object_to_key(data.keys.top().first);
+								auto ok = data.json_objs.top().add_object_to_key(data.keys.top().first);
 								if (not ok)
 									return std::unexpected(ok.error());
 								data.json_objs.push(ok.value());
@@ -932,7 +589,7 @@ namespace ljson {
 					}
 
 					static bool is_object(const struct parsing_data& data) {
-						if (not data.json_objs.empty() && data.json_objs.top()->type() == value_type::object)
+						if (not data.json_objs.empty() && data.json_objs.top().type() == value_type::object)
 							return true;
 						return false;
 					}
@@ -1040,7 +697,7 @@ namespace ljson {
 					}
 
 					static bool is_not_value(const struct parsing_data& data) {
-						if (not data.json_objs.empty() && data.json_objs.top()->type() == value_type::array) {
+						if (not data.json_objs.empty() && data.json_objs.top().type() == value_type::array) {
 							return false;
 						} else if (data.hierarchy.top().first != json_syntax::column &&
 							   data.hierarchy.top().first != json_syntax::string_value)
@@ -1133,12 +790,11 @@ namespace ljson {
 						}
 
 						if (data.keys.top().second == key_type::simple_key) {
-							auto ok = data.json_objs.top()->add_value_to_key(data.keys.top().first, data.value);
+							auto ok = data.json_objs.top().add_value_to_key(data.keys.top().first, data.value);
 							if (not ok) {
 								return std::unexpected(error(error_type::parsing_error,
-								    std::format("{}",
-									ljson::log(
-									    "internal parsing error: [adding value to simple_key]"))));
+								    std::format("{}", ljson::log("internal parsing error: [adding "
+												 "value to simple_key]"))));
 							}
 						} else if (object::is_object(data)) {
 							auto ok = fill_object_data(data);
@@ -1189,7 +845,7 @@ namespace ljson {
 
 					static std::expected<std::monostate, error> fill_object_data(struct parsing_data& data) {
 						if (data.keys.top().second == key_type::simple_key) {
-							auto ok = data.json_objs.top()->add_value_to_key(data.keys.top().first, data.value);
+							auto ok = data.json_objs.top().add_value_to_key(data.keys.top().first, data.value);
 							if (not ok) {
 								return std::unexpected(error(error_type::parsing_error,
 								    "internal parsing error\n[adding value to object]"));
@@ -1200,7 +856,7 @@ namespace ljson {
 					}
 
 					static std::expected<std::monostate, error> fill_array_data(struct parsing_data& data) {
-						auto ok = data.json_objs.top()->add_value_to_array(data.value);
+						auto ok = data.json_objs.top().add_value_to_array(data.value);
 						if (not ok) {
 							return std::unexpected(error(
 							    error_type::parsing_error, "internal parsing error\n[adding value to array]"));
@@ -1295,6 +951,433 @@ namespace ljson {
 			};
 	};
 
+	node::node() {
+	}
+
+	node::node(const struct value& value) : _node(std::make_shared<struct value>(value)) {
+	}
+
+	node::node(enum value_type type) {
+		if (type == value_type::object)
+			_node = std::make_shared<ljson::object>();
+		else if (type == value_type::array)
+			_node = std::make_shared<ljson::array>();
+		else
+			_node = std::make_shared<struct value>();
+	}
+
+	void node::handle_std_any(const std::any& any_value, std::function<void(std::any)> insert_func) {
+		if (any_value.type() == typeid(ljson::node)) {
+			auto val = std::any_cast<ljson::node>(any_value);
+			insert_func(val);
+		} else {
+			struct value value;
+			if (any_value.type() == typeid(bool)) {
+				auto val    = std::any_cast<bool>(any_value);
+				value.type  = value_type::boolean;
+				value.value = (val == true ? "true" : "false");
+				insert_func(value);
+			} else if (any_value.type() == typeid(double)) {
+				auto val    = std::any_cast<double>(any_value);
+				value.type  = value_type::number;
+				value.value = std::to_string(val);
+				insert_func(value);
+			} else if (any_value.type() == typeid(int)) {
+				auto val    = std::any_cast<int>(any_value);
+				value.type  = value_type::number;
+				value.value = std::to_string(val);
+				insert_func(value);
+			} else if (any_value.type() == typeid(float)) {
+				auto val    = std::any_cast<float>(any_value);
+				value.type  = value_type::number;
+				value.value = std::to_string(val);
+				insert_func(value);
+			} else if (any_value.type() == typeid(const char*)) {
+				auto val    = std::any_cast<const char*>(any_value);
+				value.type  = value_type::string;
+				value.value = val;
+				insert_func(value);
+			} else if (any_value.type() == typeid(std::string)) {
+				auto val    = std::any_cast<std::string>(any_value);
+				value.type  = value_type::string;
+				value.value = val;
+				insert_func(value);
+			} else {
+				throw error(error_type::wrong_type,
+				    std::string("unknown type given to ljson::node constructor: ") + any_value.type().name());
+			}
+		}
+	}
+
+	node::node(const std::initializer_list<std::pair<std::string, std::any>>& pairs) : _node(std::make_shared<ljson::object>()) {
+		std::string key;
+		auto	    map = this->as_object();
+
+		auto insert_func = [&](const std::any& value) {
+			if (value.type() == typeid(ljson::node)) {
+				auto val = std::any_cast<ljson::node>(value);
+				map->insert(key, val);
+			} else {
+				auto val = std::any_cast<struct value>(value);
+				map->insert(key, ljson::node(val));
+			}
+		};
+
+		for (const auto& pair : pairs) {
+			key = pair.first;
+			this->handle_std_any(pair.second, insert_func);
+			key.clear();
+		}
+	}
+
+	node::node(const std::initializer_list<std::any>& val) : _node(std::make_shared<ljson::array>()) {
+		auto vector = this->as_array();
+
+		auto insert_func = [&](const std::any& value) {
+			if (value.type() == typeid(ljson::node)) {
+				auto val = std::any_cast<ljson::node>(value);
+				vector->push_back(val);
+			} else {
+				auto val = std::any_cast<struct value>(value);
+				vector->push_back(ljson::node(val));
+			}
+		};
+
+		for (const auto& value : val) {
+			this->handle_std_any(value, insert_func);
+		}
+	}
+
+	std::expected<class ljson::node, error> node::add_array_to_key(const std::string& key) {
+		if (not this->is_object())
+			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add array to an object node"));
+
+		auto obj = this->as_object();
+		return obj->insert(key, ljson::node(value_type::array));
+	}
+
+	std::expected<class ljson::node, error> node::add_object_to_array() {
+		if (not this->is_array())
+			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add object to an array node"));
+
+		auto arr = this->as_array();
+		arr->push_back(ljson::node(value_type::object));
+		return arr->back();
+	}
+
+	std::expected<class ljson::node, error> node::add_node_to_array(const ljson::node& node) {
+		if (not this->is_array())
+			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an array node"));
+
+		auto arr = this->as_array();
+		arr->push_back(node);
+
+		return arr->back();
+	}
+
+	std::expected<class ljson::node, error> node::add_node_to_array(const size_t index, const ljson::node& node) {
+		if (not this->is_array())
+			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an array node"));
+
+		auto arr = this->as_array();
+		if (index >= arr->size())
+			return std::unexpected(
+			    error(error_type::wrong_type, "wrong type: trying to add node to an array node at an out-of-band index"));
+
+		(*arr)[index] = node;
+
+		return (*arr)[index];
+	}
+
+	std::expected<class ljson::node, error> node::add_object_to_key(const std::string& key) {
+		if (not this->is_object())
+			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add object to an object node"));
+
+		auto obj = this->as_object();
+		return obj->insert(key, ljson::node(value_type::object));
+	}
+
+	std::expected<class ljson::node, error> node::add_node_to_key(const std::string& key, const ljson::node& node) {
+		if (not this->is_object())
+			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an object node"));
+
+		auto obj = this->as_object();
+		return obj->insert(key, node);
+	}
+
+	std::expected<class ljson::node, error> node::add_value_to_key(const std::string& key, const struct value& value) {
+		if (not this->is_object())
+			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an object node"));
+
+		auto obj = this->as_object();
+		return obj->insert(key, ljson::node(value));
+	}
+
+	std::expected<class ljson::node, error> node::add_value_to_array(const struct value& value) {
+		if (not this->is_array())
+			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an array node"));
+
+		auto arr = this->as_array();
+		arr->push_back(ljson::node(value));
+		return arr->back();
+	}
+
+	std::expected<class ljson::node, error> node::add_value_to_array(const size_t index, const struct value& value) {
+		if (not this->is_array())
+			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an array node"));
+
+		auto arr = this->as_array();
+		if (index >= arr->size())
+			return std::unexpected(
+			    error(error_type::wrong_type, "wrong type: trying to add value to an array node at an out-of-band index"));
+
+		(*arr)[index] = ljson::node(value);
+
+		return (*arr)[index];
+	}
+
+	std::shared_ptr<struct value> node::as_value() const {
+		if (not this->is_value())
+			throw error(error_type::wrong_type, "wrong type: trying to cast a non-value node to a value");
+
+		return std::get<std::shared_ptr<struct value>>(_node);
+	}
+
+	std::shared_ptr<ljson::array> node::as_array() const {
+		if (not this->is_array())
+			throw error(error_type::wrong_type, "wrong type: trying to cast a non-array node to an array");
+
+		return std::get<std::shared_ptr<ljson::array>>(_node);
+	}
+
+	std::shared_ptr<ljson::object> node::as_object() const {
+		if (not this->is_object())
+			throw error(error_type::wrong_type, "wrong type: trying to cast a non-object node to an object");
+
+		return std::get<std::shared_ptr<ljson::object>>(_node);
+	}
+
+	bool node::is_value() const {
+		if (std::holds_alternative<std::shared_ptr<struct value>>(_node))
+			return true;
+		else
+			return false;
+	}
+
+	bool node::is_array() const {
+		if (std::holds_alternative<std::shared_ptr<ljson::array>>(_node))
+			return true;
+		else
+			return false;
+	}
+
+	bool node::is_object() const {
+		if (std::holds_alternative<std::shared_ptr<ljson::object>>(_node))
+			return true;
+		else
+			return false;
+	}
+
+	value_type node::type() const {
+		if (this->is_object())
+			return value_type::object;
+		else if (this->is_array())
+			return value_type::array;
+		else if (this->is_value()) {
+			auto val = std::get<std::shared_ptr<struct value>>(_node);
+			return val->type;
+		} else
+			return value_type::unknown;
+	}
+
+	bool node::contains(const std::string& key) {
+		if (not this->is_object())
+			return false;
+
+		auto obj = this->as_object();
+		auto itr = obj->find(key);
+
+		if (itr != obj->end())
+			return true;
+		else
+			return false;
+	}
+
+	class node& node::at(const std::string& object_key) {
+		auto obj = this->as_object();
+		auto itr = obj->find(object_key);
+		if (itr == obj->end())
+			throw error(error_type::key_not_found, std::format("key: '{}' not found", object_key));
+		return itr->second;
+	}
+
+	class node& node::at(const size_t array_index) {
+		auto arr = this->as_array();
+		if (array_index >= arr->size())
+			throw error(error_type::key_not_found, std::format("index: '{}' not found", array_index));
+
+		return arr->at(array_index);
+	}
+
+	class node& node::operator=(const std::shared_ptr<struct value>& val) {
+		if (this->is_value()) {
+			auto n	 = this->as_value();
+			n->value = val->value;
+			n->type	 = val->type;
+		} else {
+			_node = val;
+		}
+		return *this;
+	}
+
+	class node& node::operator=(const struct value& val) {
+		if (this->is_value()) {
+			auto n	 = this->as_value();
+			n->value = val.value;
+			n->type	 = val.type;
+		} else {
+			_node = std::make_shared<struct value>(val);
+		}
+		return *this;
+	}
+
+	class node& node::operator=(const std::shared_ptr<ljson::array>& arr) {
+		_node = arr;
+		return *this;
+	}
+
+	class node& node::operator=(const std::shared_ptr<ljson::object>& obj) {
+		_node = obj;
+		return *this;
+	}
+
+	std::expected<std::monostate, error> node::set(const struct value& value) {
+		if (not this->is_value())
+			return std::unexpected(error(error_type::wrong_type, "wrong type: can't set value to non-value node-class"));
+
+		auto val = this->as_value();
+
+		val->value = value.value;
+		val->type  = value.type;
+
+		return std::monostate();
+	}
+
+	std::expected<std::monostate, error> node::set(const std::string& value) {
+		struct value new_value;
+		new_value.type	= ljson::value_type::string;
+		new_value.value = value;
+
+		this->set(new_value);
+
+		return std::monostate();
+	}
+
+	std::expected<std::monostate, error> node::set(const double value) {
+		struct value new_value;
+		new_value.type	= ljson::value_type::number;
+		new_value.value = value;
+
+		this->set(new_value);
+
+		return std::monostate();
+	}
+
+	std::expected<std::monostate, error> node::set(const bool value) {
+		struct value new_value;
+		new_value.type	= ljson::value_type::boolean;
+		new_value.value = (value == true ? "true" : "false");
+
+		this->set(new_value);
+
+		return std::monostate();
+	}
+
+	std::expected<std::monostate, error> node::set(const char* value) {
+		std::string str = value;
+		this->set(str);
+		return std::monostate();
+	}
+
+	std::expected<std::monostate, error> node::set(const ljson::null_value) {
+		struct value new_value;
+		new_value.type	= ljson::value_type::null;
+		new_value.value = "null";
+
+		this->set(new_value);
+
+		return std::monostate();
+	}
+
+	void node::dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf, int indent) const {
+
+		using node_or_value = std::variant<std::shared_ptr<struct value>, ljson::node>;
+
+		auto dump_val = [&indent, &out_func, &indent_conf](const node_or_value& value_or_nclass) {
+			if (std::holds_alternative<std::shared_ptr<struct value>>(value_or_nclass)) {
+				auto val = std::get<std::shared_ptr<struct value>>(value_or_nclass);
+				if (val->type == ljson::value_type::string)
+					out_func(std::format("\"{}\"", val->value));
+				else
+					out_func(std::format("{}", val->value));
+			} else {
+				std::get<ljson::node>(value_or_nclass).dump(out_func, indent_conf, indent + indent_conf.second);
+			}
+		};
+
+		if (this->is_object()) {
+			out_func(std::format("{{\n"));
+			auto   map   = this->as_object();
+			size_t count = 0;
+			for (const auto& pair : *map) {
+				out_func(
+				    std::format("{}\"{}\": ", std::string(indent + indent_conf.second, indent_conf.first), pair.first));
+				dump_val(pair.second);
+
+				if (++count != map->size())
+					out_func(std::format(","));
+
+				out_func(std::format("\n"));
+			}
+			out_func(std::format("{}}}", std::string(indent, indent_conf.first)));
+		} else if (this->is_array()) {
+			out_func(std::format("[\n"));
+			auto   vector = this->as_array();
+			size_t count  = 0;
+			for (const auto& array_value : *vector) {
+				out_func(std::format("{}", std::string(indent + indent_conf.second, indent_conf.first)));
+				dump_val(array_value);
+
+				if (++count != vector->size())
+					out_func(std::format(","));
+
+				out_func(std::format("\n"));
+			}
+			out_func(std::format("{}]", std::string(indent, indent_conf.first)));
+		} else if (this->is_value()) {
+			auto val = this->as_value();
+			dump_val(val);
+		}
+	}
+
+	void node::dump_to_stdout(const std::pair<char, int>& indent_conf) {
+		auto func = [](const std::string& output) { std::cout << output; };
+		this->dump(func, indent_conf);
+	}
+
+	std::expected<std::monostate, error> node::write_to_file(
+	    const std::filesystem::path& path, const std::pair<char, int>& indent_conf) {
+		std::ofstream file(path);
+		if (not file.is_open())
+			return std::unexpected(error(error_type::filesystem_error, std::strerror(errno)));
+
+		auto func = [&file](const std::string& output) { file << output; };
+		this->dump(func, indent_conf);
+		file.close();
+
+		return std::monostate();
+	}
+
 	parser::parser() {
 	}
 
@@ -1341,7 +1424,7 @@ namespace ljson {
 		}
 	}
 
-	std::shared_ptr<json> parser::parse(const std::filesystem::path& path) {
+	ljson::node parser::parse(const std::filesystem::path& path) {
 		std::unique_ptr<std::ifstream> file = std::make_unique<std::ifstream>(path);
 		if (not file->is_open())
 			throw ljson::error(
@@ -1365,7 +1448,7 @@ namespace ljson {
 		return this->json_data;
 	}
 
-	std::shared_ptr<json> parser::parse(const std::string& raw_json) {
+	ljson::node parser::parse(const std::string& raw_json) {
 		struct parsing_data data;
 
 		data.json_objs.push(this->json_data);
