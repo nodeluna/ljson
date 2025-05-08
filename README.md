@@ -1,21 +1,29 @@
-This is a header-only json library
+ljson is an easy to use header only json library for c++
 
+# usage
+to use in your project simply #include the <ljson.hpp> header
+
+# requirements
+- compiler that supports c++23
+- gcc 12 or clang 16
+
+# tutorial
 
 # reading and writing to files
 ```cpp
-#include <ljson>
+#include <ljson.hpp>
 #include <exception>
 
 int main() {
 	std::string path_to_file = "meow";
-	ljson::parser parser = ljson::parser(path_to_file);
+	ljson::parser parser;
 
 	try {
-		std::shared_ptr<ljson::json> json = parser.parse();
+		ljson::node node = parser.parse();
 		std::pair<char, int> indent_config = {'\t', 2}; // you can specifiy tab/space here and it's count
-		json->dump_to_stdout(indent_config);
-		json->dump_to_stdout(); // not specifiying defaults to {' ', 4}
-		json->write_to_file("new_file.json"); // same with writing to files
+		node.dump_to_stdout(indent_config);
+		node.dump_to_stdout(); // not specifiying defaults to {' ', 4}
+		node.write_to_file("new_file.json" /*, indent_config */);
 
 
 	} catch (const std::exception& error) {
@@ -30,24 +38,24 @@ int main() {
 
 ```cpp
 
-#include <ljson>
+#include <ljson.hpp>
 #include <exception>
 
 int main() {
 	std::string path_to_file = "meow";
-	ljson::parser parser = ljson::parser(path_to_file);
+	ljson::parser parser;
 
 	// making a json object
-	ljson::json j2 = {
+	ljson::node j2 = {
 		 {"simple_key", "meow_value"},
-		 {"array_key", ljson::json({ // ljson::json() can hold an object or array's values
+		 {"array_key", ljson::node({ // ljson::node() can hold an object, array's values or a simple value
 				 "arr_key1",
 				 "arr_key2",
 				 "arr_key3",
 				 "arr_key4",
 				 "arr_key5",
 				 })},
-		 {"object_key", ljson::json({
+		 {"object_key", ljson::node({
 				 {"obj_key1", "value1"},
 				 {"obj_key2", "value2"},
 				 {"obj_key3", "value3"},
@@ -55,42 +63,46 @@ int main() {
 	};
 
 	try {
-		std::shared_ptr<ljson::json> json = parser.parse();
+		ljson::node node = parser.parse();
 
-		// this function adds an object to a simple key
-		json->add_object_to_key("new_object", j2);
+		// this function adds an object to a key
+		node.add_object_to_key("new_object", j2);
 
-		std::shared_ptr<ljson::json> json_data = json->at("object_key")->("nested_key"); // getting the value of nested_key
+		ljson::node new_node = node.at("object_key").at("nested_key"); // getting the value of nested_key
 												 // this function can throw if the key doesn't exist
 
 		// to check if the key exists or not
-		if (json->contains("object_key")) {
-			json_data = json->at("object_key");
-			if (json_data->contains("nested_key")) {
-				json_data = json_data->at("nested_key");
+		if (node.contains("object_key")) {
+			new_node = node.at("object_key");
+			if (new_node.contains("nested_key")) {
+				new_node = new_node.at("nested_key");
 
 				// to change the value, it can be done this way
-				json_data->set("new_value_for_nested_key");
+				new_node.set("new_value_for_nested_key");
 				// or this way
-				*json_data = "new_value_for_nested_key";
+				new_node = ljson::value{.value = "new_value_for_nested_key", .type = ljson::value_type::string};
 			}
 		}
 
 		// this function adds an object to an array
-		json->at("new_object")->at("array_key")->add_object_to_array("object_inside_array", j2);
+		node.at("object").at("array_key").add_object_to_array("object_inside_array", j2);
 
 		// this function adds a value to an array
-		json->at("new_object")->at("array_key")->add_value_to_array("new_array_value");
+		node.at("object").at("array_key").add_value_to_array("new_array_value");
 
-		// to access an index inside an array pass a size_t to the ->at(index) function
-		json_data = json->at("new_object")->at("array_key")->at(0); 
+		// to access an index inside an array pass a size_t to the .at(index) function
+		new_node = node.at("object").at("array_key").at(0); 
 
 		// to chage its value
-		json_data->set("changed_value");
-		json_data->set(true);
-		json_data->set(12);
+		std::expected<std::monostate, ljson::error> ok = new_node.set("changed_value");
+		if (not ok) {
+			std::println("err: {}", ok.error().message()); // ok.error().value() == ljson::error_type::wrong_type
+		}
+		new_node.set(true);
+		new_node.set(12);
+		new_node.set(ljson::null_value()); // set its value to 'null'
 
-		json->write_to_file("new_file.json"); // write the new changes
+		node.write_to_file("new_file.json"); // write the new changes
 
 
 	} catch (const std::exception& error) {
@@ -101,3 +113,70 @@ int main() {
 
 ```
 
+# castin to a json array and iteration
+```cpp
+#include <ljson.hpp>
+#include <exception>
+
+int main() {
+	std::string path_to_file = "meow";
+	ljson::parser parser;
+
+	try {
+		// parse the file
+		ljson::node new_node = node.at("key").at("array");
+		if (new_node.is_array()) {
+			// this function can throw if the internal type isn't an json array
+			std::shared_ptr<ljson::array> array = new_node.as_array();
+
+			for (ljson::node& element : *array) {
+				if (element.is_value()) {
+					std::println("array element: {}, type name: {}",
+						element->as_value().value, element->as_value().type_name());
+				}
+			}
+		}
+
+
+	} catch (const std::exception& error) {
+		// parsing error, JSON syntax error
+		// handle error
+	}
+  
+}
+
+```
+
+# castin to a json object and iteration
+```cpp
+#include <ljson.hpp>
+#include <exception>
+
+int main() {
+	std::string path_to_file = "meow";
+	ljson::parser parser;
+
+	try {
+		// parse the file
+		ljson::node new_node = node.at("key").at("object");
+		if (new_node.is_object()) {
+			// this function can throw if the internal type isn't a json object
+			std::shared_ptr<ljson::object> object = new_node.as_object();
+
+			for (auto& [key, node] : *object) {
+				if (node.is_value()) {
+					std::println("object key: {} element: {}, type name: {}", key
+						node->as_value().value, node->as_value().type_name());
+				}
+			}
+		}
+
+
+	} catch (const std::exception& error) {
+		// parsing error, JSON syntax error
+		// handle error
+	}
+  
+}
+
+```
