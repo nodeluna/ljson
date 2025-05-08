@@ -20,7 +20,8 @@
 #include <source_location>
 
 namespace ljson {
-	std::string log(const std::string& msg, std::source_location location = std::source_location::current()) {
+	std::string log(const std::string& msg, std::source_location location = std::source_location::current())
+	{
 		const std::string reset	 = "\x1b[0m";
 		const std::string color1 = "\x1b[31m";
 		const std::string color2 = "\x1b[32m";
@@ -36,23 +37,29 @@ namespace ljson {
 		return output;
 	}
 
-	void print_log(const std::string& msg, std::source_location location = std::source_location::current()) {
+	void print_log(const std::string& msg, std::source_location location = std::source_location::current())
+	{
 		std::cout << log(msg, location);
 	}
 
-	bool is_num_decimal(const std::string& x) {
+	bool is_num_decimal(const std::string& x)
+	{
 		if (x.empty())
 			return false;
 		bool has_decimal = false;
-		return std::all_of(x.begin(), x.end(), [&](char c) {
-			if (std::isdigit(c))
-				return true;
-			else if (c == '.' && not has_decimal) {
-				has_decimal = true;
-				return true;
-			} else
-				return false;
-		});
+		return std::all_of(x.begin(), x.end(),
+		    [&](char c)
+		    {
+			    if (std::isdigit(c))
+				    return true;
+			    else if (c == '.' && not has_decimal)
+			    {
+				    has_decimal = true;
+				    return true;
+			    }
+			    else
+				    return false;
+		    });
 	}
 
 	enum class error_type {
@@ -114,8 +121,10 @@ namespace ljson {
 			std::string value;
 			value_type  type = value_type::none;
 
-			std::string type_name() const {
-				switch (type) {
+			std::string type_name() const
+			{
+				switch (type)
+				{
 					case ljson::value_type::string:
 						return "string";
 					case ljson::value_type::boolean:
@@ -145,7 +154,8 @@ namespace ljson {
 
 	class null_value {
 		public:
-			null_value() {
+			null_value()
+			{
 			}
 	};
 
@@ -208,49 +218,61 @@ namespace ljson {
 			json_array _array;
 
 		public:
-			explicit array(const json_array& arr) : _array(arr) {
+			explicit array(const json_array& arr) : _array(arr)
+			{
 			}
 
-			explicit array() {
+			explicit array()
+			{
 			}
 
-			void push_back(const class node& element) {
+			void push_back(const class node& element)
+			{
 				return _array.push_back(element);
 			}
 
-			void pop_back() {
+			void pop_back()
+			{
 				return _array.pop_back();
 			}
 
-			class node& front() {
+			class node& front()
+			{
 				return _array.front();
 			}
 
-			class node& back() {
+			class node& back()
+			{
 				return _array.back();
 			}
 
-			size_t size() {
+			size_t size()
+			{
 				return _array.size();
 			}
 
-			bool empty() {
+			bool empty()
+			{
 				return _array.empty();
 			}
 
-			json_array::iterator begin() {
+			json_array::iterator begin()
+			{
 				return _array.begin();
 			}
 
-			json_array::iterator end() {
+			json_array::iterator end()
+			{
 				return _array.end();
 			}
 
-			class ljson::node& at(size_t i) {
+			class ljson::node& at(size_t i)
+			{
 				return _array.at(i);
 			}
 
-			class ljson::node& operator[](size_t i) {
+			class ljson::node& operator[](size_t i)
+			{
 				return _array[i];
 			}
 	};
@@ -260,43 +282,53 @@ namespace ljson {
 			json_object _object;
 
 		public:
-			explicit object() : _object(json_object{}) {
+			explicit object() : _object(json_object{})
+			{
 			}
 
-			ljson::node insert(const std::string& key, const class node& element) {
+			ljson::node insert(const std::string& key, const class node& element)
+			{
 				auto itr = _object[key] = element;
 				return itr;
 			}
 
-			json_object::size_type erase(const std::string& key) {
+			json_object::size_type erase(const std::string& key)
+			{
 				return _object.erase(key);
 			}
 
-			size_t size() {
+			size_t size()
+			{
 				return _object.size();
 			}
 
-			bool empty() {
+			bool empty()
+			{
 				return _object.empty();
 			}
 
-			json_object::iterator find(const std::string& key) {
+			json_object::iterator find(const std::string& key)
+			{
 				return _object.find(key);
 			}
 
-			json_object::iterator begin() {
+			json_object::iterator begin()
+			{
 				return _object.begin();
 			}
 
-			json_object::iterator end() {
+			json_object::iterator end()
+			{
 				return _object.end();
 			}
 
-			class ljson::node& at(const std::string& key) {
+			class ljson::node& at(const std::string& key)
+			{
 				return _object[key];
 			}
 
-			class ljson::node& operator[](const std::string& key) {
+			class ljson::node& operator[](const std::string& key)
+			{
 				return _object[key];
 			}
 	};
@@ -328,8 +360,10 @@ namespace ljson {
 
 	struct parser_syntax {
 			struct open_bracket {
-					static std::expected<bool, error> handle_open_bracket(struct parsing_data& data) {
-						if (data.line[data.i] == '{' && not value::is_string(data)) {
+					static std::expected<bool, error> handle_open_bracket(struct parsing_data& data)
+					{
+						if (data.line[data.i] == '{' && not value::is_string(data))
+						{
 							data.hierarchy.push({json_syntax::opening_bracket, data.line_number});
 							return true;
 						}
@@ -339,7 +373,8 @@ namespace ljson {
 			};
 
 			struct empty {
-					static std::expected<bool, error> handle_empty(struct parsing_data& data) {
+					static std::expected<bool, error> handle_empty(struct parsing_data& data)
+					{
 						if (data.line[data.i] != ' ' && data.line[data.i] != '\t')
 							return false;
 						else if (data.hierarchy.empty())
@@ -351,7 +386,8 @@ namespace ljson {
 						else if (data.value.type != ljson::value_type::none &&
 							 data.value.type != ljson::value_type::unknown)
 							return false;
-						else if (data.value.type != ljson::value_type::string && not data.value.value.empty()) {
+						else if (data.value.type != ljson::value_type::string && not data.value.value.empty())
+						{
 							auto ok = end_statement::flush_value(data);
 							if (not ok && ok.error().value() == error_type::parsing_error_wrong_type)
 								return std::unexpected(error(error_type::parsing_error,
@@ -366,8 +402,10 @@ namespace ljson {
 			};
 
 			struct key {
-					static std::expected<bool, error> handle_key(struct parsing_data& data) {
-						if (quotes::is_hierarchy_qoutes(data.hierarchy) && not array::is_array(data)) {
+					static std::expected<bool, error> handle_key(struct parsing_data& data)
+					{
+						if (quotes::is_hierarchy_qoutes(data.hierarchy) && not array::is_array(data))
+						{
 							data.keys.top().first += data.line[data.i];
 							return true;
 						}
@@ -377,10 +415,13 @@ namespace ljson {
 			};
 
 			struct quotes {
-					static std::expected<bool, error> handle_quotes(struct parsing_data& data) {
+					static std::expected<bool, error> handle_quotes(struct parsing_data& data)
+					{
 						bool found_qoute = false;
-						if (first_quote(data)) {
-							if (data.hierarchy.top().first == json_syntax::quotes_1) {
+						if (first_quote(data))
+						{
+							if (data.hierarchy.top().first == json_syntax::quotes_1)
+							{
 								if (not data.keys.empty() && data.keys.top().first.empty())
 									data.keys.top().second = key_type::simple_key;
 								data.hierarchy.pop();
@@ -388,8 +429,11 @@ namespace ljson {
 							}
 
 							found_qoute = true;
-						} else if (second_quote(data)) {
-							if (data.hierarchy.top().first == json_syntax::quotes_2) {
+						}
+						else if (second_quote(data))
+						{
+							if (data.hierarchy.top().first == json_syntax::quotes_2)
+							{
 								if (not data.keys.empty() && data.keys.top().first.empty())
 									data.keys.top().second = key_type::simple_key;
 								data.hierarchy.pop();
@@ -399,17 +443,22 @@ namespace ljson {
 							found_qoute = true;
 						}
 
-						if (found_qoute) {
+						if (found_qoute)
+						{
 							if (not data.hierarchy.empty() &&
 							    (data.hierarchy.top().first == json_syntax::column ||
-								data.hierarchy.top().first == json_syntax::array)) {
+								data.hierarchy.top().first == json_syntax::array))
+							{
 								data.hierarchy.push({json_syntax::string_value, data.line_number});
 								data.value.type = ljson::value_type::string;
-							} else if (not data.hierarchy.empty() &&
-								   data.hierarchy.top().first == json_syntax::string_value) {
+							}
+							else if (not data.hierarchy.empty() &&
+								 data.hierarchy.top().first == json_syntax::string_value)
+							{
 								data.hierarchy.pop();
 								return end_statement::flush_value(data);
-							} else
+							}
+							else
 								data.hierarchy.push({json_syntax::quotes_1, data.line_number});
 
 							return true;
@@ -418,7 +467,8 @@ namespace ljson {
 						return false;
 					}
 
-					static bool first_quote(const struct parsing_data& data) {
+					static bool first_quote(const struct parsing_data& data)
+					{
 						if (data.line[data.i] == '"' &&
 						    (data.hierarchy.empty() || data.hierarchy.top().first != json_syntax::quotes_2))
 							return true;
@@ -426,7 +476,8 @@ namespace ljson {
 							return false;
 					}
 
-					static bool second_quote(const struct parsing_data& data) {
+					static bool second_quote(const struct parsing_data& data)
+					{
 						if (data.line[data.i] == '\'' &&
 						    (data.hierarchy.empty() || data.hierarchy.top().first != json_syntax::quotes_1))
 							return true;
@@ -434,7 +485,8 @@ namespace ljson {
 							return false;
 					}
 
-					static bool is_hierarchy_qoutes(const std::stack<std::pair<json_syntax, size_t>>& hierarchy) {
+					static bool is_hierarchy_qoutes(const std::stack<std::pair<json_syntax, size_t>>& hierarchy)
+					{
 						if (hierarchy.empty())
 							return false;
 						else if (hierarchy.top().first == json_syntax::quotes_1 ||
@@ -444,7 +496,8 @@ namespace ljson {
 							return false;
 					}
 
-					static bool is_hierarchy_qoutes(const char ch) {
+					static bool is_hierarchy_qoutes(const char ch)
+					{
 						if (ch == '"' || ch == '\'')
 							return true;
 						else
@@ -453,12 +506,14 @@ namespace ljson {
 			};
 
 			struct array {
-					static std::expected<bool, error> handle_array(struct parsing_data& data) {
+					static std::expected<bool, error> handle_array(struct parsing_data& data)
+					{
 						if (data.hierarchy.empty() || end_statement::is_end_statement(data) ||
 						    value::is_string(data))
 							return false;
 
-						if (data.line[data.i] == '[') {
+						if (data.line[data.i] == '[')
+						{
 							data.hierarchy.push({json_syntax::array, data.line_number});
 							data.keys.top().second = key_type::array;
 
@@ -470,7 +525,9 @@ namespace ljson {
 							if (end_statement::next_char_is_newline(data))
 								data.line.pop_back();
 							return true;
-						} else if (is_array(data) && data.line[data.i] == ']') {
+						}
+						else if (is_array(data) && data.line[data.i] == ']')
+						{
 							data.hierarchy.pop();
 
 							if (not data.json_objs.empty())
@@ -484,19 +541,22 @@ namespace ljson {
 						return false;
 					}
 
-					static bool is_array(const struct parsing_data& data) {
+					static bool is_array(const struct parsing_data& data)
+					{
 						if (not data.json_objs.empty() && data.json_objs.top().type() == value_type::array)
 							return true;
 						return false;
 					}
 
-					static bool is_array_char(const char ch) {
+					static bool is_array_char(const char ch)
+					{
 						if (ch == '[' || ch == ']')
 							return true;
 						return false;
 					}
 
-					static bool brackets_at_end_of_line(const struct parsing_data& data) {
+					static bool brackets_at_end_of_line(const struct parsing_data& data)
+					{
 						if (data.i == data.line.size() - 1 &&
 						    (data.line[data.i] == '[' || data.line[data.i] == ']'))
 							return true;
@@ -505,24 +565,29 @@ namespace ljson {
 			};
 
 			struct column {
-					static std::expected<bool, error> handle_column(struct parsing_data& data) {
+					static std::expected<bool, error> handle_column(struct parsing_data& data)
+					{
 						if (data.line[data.i] != ':')
 							return false;
 						else if (column_in_quotes(data.hierarchy))
 							return false;
 
-						if (two_consecutive_columns(data.hierarchy)) {
+						if (two_consecutive_columns(data.hierarchy))
+						{
 							return std::unexpected(error(error_type::parsing_error,
 							    std::format("two consecutive columns at: {}, key: {}, val: {}, line: {}",
 								data.line_number, data.keys.top().first, data.value.value, data.line)));
-						} else {
+						}
+						else
+						{
 							data.hierarchy.push({json_syntax::column, data.line_number});
 						}
 
 						return true;
 					}
 
-					static bool column_in_quotes(const std::stack<std::pair<json_syntax, size_t>>& hierarchy) {
+					static bool column_in_quotes(const std::stack<std::pair<json_syntax, size_t>>& hierarchy)
+					{
 						if (hierarchy.empty())
 							return false;
 						else if (hierarchy.top().first == json_syntax::quotes_1 ||
@@ -532,7 +597,8 @@ namespace ljson {
 						return false;
 					}
 
-					static bool two_consecutive_columns(const std::stack<std::pair<json_syntax, size_t>>& hierarchy) {
+					static bool two_consecutive_columns(const std::stack<std::pair<json_syntax, size_t>>& hierarchy)
+					{
 						if (not hierarchy.empty() && hierarchy.top().first == json_syntax::column)
 							return true;
 						return false;
@@ -540,18 +606,23 @@ namespace ljson {
 			};
 
 			struct object {
-					static std::expected<bool, error> handle_object(struct parsing_data& data) {
+					static std::expected<bool, error> handle_object(struct parsing_data& data)
+					{
 						if (data.hierarchy.empty() || end_statement::is_end_statement(data) ||
 						    value::is_string(data))
 							return false;
 
-						if (data.line[data.i] == '{') {
-							if (array::is_array(data)) {
+						if (data.line[data.i] == '{')
+						{
+							if (array::is_array(data))
+							{
 								auto ok = data.json_objs.top().add_object_to_array();
 								if (not ok)
 									return std::unexpected(ok.error());
 								data.json_objs.push(ok.value());
-							} else {
+							}
+							else
+							{
 								auto ok = data.json_objs.top().add_object_to_key(data.keys.top().first);
 								if (not ok)
 									return std::unexpected(ok.error());
@@ -562,7 +633,9 @@ namespace ljson {
 							data.hierarchy.push({json_syntax::object, data.line_number});
 
 							return true;
-						} else if (is_object(data) && data.line[data.i] == '}') {
+						}
+						else if (is_object(data) && data.line[data.i] == '}')
+						{
 							data.hierarchy.pop();
 							data.keys.pop();
 
@@ -576,7 +649,9 @@ namespace ljson {
 								data.keys.top().second = key_type::none;
 							data.hierarchy.push({json_syntax::maybe_empty_space_after, data.line_number});
 							return true;
-						} else if (array::is_array(data) && data.line[data.i] == '}') {
+						}
+						else if (array::is_array(data) && data.line[data.i] == '}')
+						{
 							data.hierarchy.pop();
 							data.keys.pop();
 							if (not data.json_objs.empty())
@@ -588,19 +663,22 @@ namespace ljson {
 						return false;
 					}
 
-					static bool is_object(const struct parsing_data& data) {
+					static bool is_object(const struct parsing_data& data)
+					{
 						if (not data.json_objs.empty() && data.json_objs.top().type() == value_type::object)
 							return true;
 						return false;
 					}
 
-					static bool is_object_char(const char ch) {
+					static bool is_object_char(const char ch)
+					{
 						if (ch == '{' || ch == '}')
 							return true;
 						return false;
 					}
 
-					static bool brackets_at_end_of_line(const struct parsing_data& data) {
+					static bool brackets_at_end_of_line(const struct parsing_data& data)
+					{
 						if (data.i == data.line.size() - 1 &&
 						    (data.line[data.i] == '{' || data.line[data.i] == '}'))
 							return true;
@@ -609,11 +687,13 @@ namespace ljson {
 			};
 
 			struct escape {
-					static std::expected<bool, error> handle_escape_char(struct parsing_data& data) {
+					static std::expected<bool, error> handle_escape_char(struct parsing_data& data)
+					{
 						if (data.value.type != value_type::temp_escape_type)
 							return false;
 
-						if (not is_next_char_correct(data.line[data.i])) {
+						if (not is_next_char_correct(data.line[data.i]))
+						{
 							std::string err = std::format("escape sequence is incorrect. expected [\", \\, "
 										      "t, b, f, n, r, u, /] found: {}\nline: {}",
 							    data.line[data.i], data.line);
@@ -623,14 +703,18 @@ namespace ljson {
 						return true;
 					}
 
-					static bool is_escape_char(const struct parsing_data& data) {
-						if (data.value.type == value_type::string && data.line[data.i] == '\\') {
+					static bool is_escape_char(const struct parsing_data& data)
+					{
+						if (data.value.type == value_type::string && data.line[data.i] == '\\')
+						{
 							return true;
-						} else
+						}
+						else
 							return false;
 					}
 
-					static bool is_next_char_correct(const char ch) {
+					static bool is_next_char_correct(const char ch)
+					{
 						std::unordered_set<char> chars = {'"', '\\', 't', 'b', 'f', 'n', 'r', 'u', '/'};
 						// TODO: handle the unicode sequence
 						if (auto itr = chars.find(ch); itr != chars.end())
@@ -641,7 +725,8 @@ namespace ljson {
 			};
 
 			struct value {
-					static std::expected<bool, error> handle_value(struct parsing_data& data) {
+					static std::expected<bool, error> handle_value(struct parsing_data& data)
+					{
 						if (data.hierarchy.empty())
 							return false;
 						else if (is_not_value(data))
@@ -656,18 +741,25 @@ namespace ljson {
 						if (empty_value_in_non_string(data))
 							return end_statement::flush_value(data);
 
-						if (not array::is_array(data)) {
+						if (not array::is_array(data))
+						{
 							data.keys.top().second = key_type::simple_key;
 						}
 
-						if (escape::is_escape_char(data)) {
+						if (escape::is_escape_char(data))
+						{
 							data.value.type = value_type::temp_escape_type;
-						} else if (auto ok = escape::handle_escape_char(data); (ok && ok.value()) || not ok) {
+						}
+						else if (auto ok = escape::handle_escape_char(data); (ok && ok.value()) || not ok)
+						{
 							if (not ok)
 								return ok;
 							data.value.type = value_type::string;
-						} else {
-							if (data.hierarchy.top().first == json_syntax::string_value) {
+						}
+						else
+						{
+							if (data.hierarchy.top().first == json_syntax::string_value)
+							{
 								data.value.type = value_type::string;
 							}
 						}
@@ -677,7 +769,8 @@ namespace ljson {
 						return true;
 					}
 
-					static bool empty_value_in_non_string(const struct parsing_data& data) {
+					static bool empty_value_in_non_string(const struct parsing_data& data)
+					{
 						if (data.value.value.empty())
 							return false;
 						else if (data.value.type != ljson::value_type::string &&
@@ -687,7 +780,8 @@ namespace ljson {
 							return false;
 					}
 
-					static bool is_string(const struct parsing_data& data) {
+					static bool is_string(const struct parsing_data& data)
+					{
 						if (data.hierarchy.empty())
 							return false;
 						else if (data.hierarchy.top().first == json_syntax::string_value)
@@ -696,11 +790,14 @@ namespace ljson {
 							return false;
 					}
 
-					static bool is_not_value(const struct parsing_data& data) {
-						if (not data.json_objs.empty() && data.json_objs.top().type() == value_type::array) {
+					static bool is_not_value(const struct parsing_data& data)
+					{
+						if (not data.json_objs.empty() && data.json_objs.top().type() == value_type::array)
+						{
 							return false;
-						} else if (data.hierarchy.top().first != json_syntax::column &&
-							   data.hierarchy.top().first != json_syntax::string_value)
+						}
+						else if (data.hierarchy.top().first != json_syntax::column &&
+							 data.hierarchy.top().first != json_syntax::string_value)
 							return true;
 
 						return false;
@@ -708,14 +805,16 @@ namespace ljson {
 			};
 
 			struct end_statement {
-					static bool next_char_is_newline(const struct parsing_data& data) {
+					static bool next_char_is_newline(const struct parsing_data& data)
+					{
 						if (data.i == data.line.size() - 2 && data.line[data.i + 1] == '\n')
 							return true;
 						else
 							return false;
 					}
 
-					static bool end_of_line_after_bracket(const struct parsing_data& data) {
+					static bool end_of_line_after_bracket(const struct parsing_data& data)
+					{
 						if (data.hierarchy.empty())
 							return false;
 						else if (data.hierarchy.top().first == json_syntax::column &&
@@ -724,29 +823,35 @@ namespace ljson {
 						return false;
 					}
 
-					static std::expected<bool, error> flush_value(struct parsing_data& data) {
+					static std::expected<bool, error> flush_value(struct parsing_data& data)
+					{
 						data.hierarchy.push({json_syntax::flush_value, data.line_number});
 						return handle_end_statement(data);
 					}
 
-					static bool pop_flush_element(const struct parsing_data& data) {
-						if (not data.hierarchy.empty() && data.hierarchy.top().first == json_syntax::flush_value) {
+					static bool pop_flush_element(const struct parsing_data& data)
+					{
+						if (not data.hierarchy.empty() && data.hierarchy.top().first == json_syntax::flush_value)
+						{
 							return true;
 						}
 
 						return false;
 					}
 
-					static bool empty_space_in_number(struct parsing_data& data) {
+					static bool empty_space_in_number(struct parsing_data& data)
+					{
 						bool found_empty = false;
 
-						auto empty_char = [](char ch) {
+						auto empty_char = [](char ch)
+						{
 							if (ch == ' ' || ch == '\t')
 								return true;
 							return false;
 						};
 
-						for (size_t& i = data.i; i < data.line.size(); i++) {
+						for (size_t& i = data.i; i < data.line.size(); i++)
+						{
 							if (empty_char(data.line[i]))
 								found_empty = true;
 							else if (data.line[i] == ',' || data.line[i] == '\n')
@@ -758,10 +863,13 @@ namespace ljson {
 						return false;
 					}
 
-					static std::expected<bool, error> handle_end_statement(struct parsing_data& data) {
-						if (not is_end_statement(data)) {
+					static std::expected<bool, error> handle_end_statement(struct parsing_data& data)
+					{
+						if (not is_end_statement(data))
+						{
 							return false;
-						} else if (not there_is_a_value(data))
+						}
+						else if (not there_is_a_value(data))
 							return false;
 
 						if (next_char_is_newline(data))
@@ -770,37 +878,53 @@ namespace ljson {
 						if (pop_flush_element(data))
 							data.hierarchy.pop();
 
-						if (data.value.value == "null") {
+						if (data.value.value == "null")
+						{
 							data.value.type = value_type::null;
-						} else if (data.value.value == "true" || data.value.value == "false") {
+						}
+						else if (data.value.value == "true" || data.value.value == "false")
+						{
 							data.value.type = value_type::boolean;
-						} else if (is_num_decimal(data.value.value)) {
+						}
+						else if (is_num_decimal(data.value.value))
+						{
 							data.value.type = value_type::number;
-							if (empty_space_in_number(data)) {
+							if (empty_space_in_number(data))
+							{
 								return std::unexpected(error(error_type::parsing_error_wrong_type,
 								    std::format(
 									"type error: '{}', in line: '{}'", data.value.value, data.line)));
 							}
-						} else if (data.value.type == ljson::value_type::none && data.value.value.empty()) {
+						}
+						else if (data.value.type == ljson::value_type::none && data.value.value.empty())
+						{
 							return true;
-						} else if (data.value.type != ljson::value_type::string) {
+						}
+						else if (data.value.type != ljson::value_type::string)
+						{
 							data.value.type = value_type::unknown;
 							return std::unexpected(error(error_type::parsing_error_wrong_type,
 							    std::format("unknown type: '{}', in line: '{}'", data.value.value, data.line)));
 						}
 
-						if (data.keys.top().second == key_type::simple_key) {
+						if (data.keys.top().second == key_type::simple_key)
+						{
 							auto ok = data.json_objs.top().add_value_to_key(data.keys.top().first, data.value);
-							if (not ok) {
+							if (not ok)
+							{
 								return std::unexpected(error(error_type::parsing_error,
 								    std::format("{}", ljson::log("internal parsing error: [adding "
 												 "value to simple_key]"))));
 							}
-						} else if (object::is_object(data)) {
+						}
+						else if (object::is_object(data))
+						{
 							auto ok = fill_object_data(data);
 							if (not ok)
 								return std::unexpected(ok.error());
-						} else if (array::is_array(data)) {
+						}
+						else if (array::is_array(data))
+						{
 							auto ok = fill_array_data(data);
 							if (not ok)
 								return std::unexpected(ok.error());
@@ -817,20 +941,24 @@ namespace ljson {
 						return true;
 					}
 
-					static bool is_end_statement(const struct parsing_data& data) {
+					static bool is_end_statement(const struct parsing_data& data)
+					{
 						if (data.line[data.i] == ',')
 							return true;
 						else if (data.i == data.line.size() - 1 && not object::brackets_at_end_of_line(data) &&
 							 not array::brackets_at_end_of_line(data))
 							return true;
 						else if (not data.hierarchy.empty() &&
-							 data.hierarchy.top().first == json_syntax::flush_value) {
+							 data.hierarchy.top().first == json_syntax::flush_value)
+						{
 							return true;
-						} else
+						}
+						else
 							return false;
 					}
 
-					static bool there_is_a_value(const struct parsing_data& data) {
+					static bool there_is_a_value(const struct parsing_data& data)
+					{
 						if (data.hierarchy.empty())
 							return false;
 						else if (data.hierarchy.top().first == json_syntax::column)
@@ -843,10 +971,13 @@ namespace ljson {
 						return false;
 					}
 
-					static std::expected<std::monostate, error> fill_object_data(struct parsing_data& data) {
-						if (data.keys.top().second == key_type::simple_key) {
+					static std::expected<std::monostate, error> fill_object_data(struct parsing_data& data)
+					{
+						if (data.keys.top().second == key_type::simple_key)
+						{
 							auto ok = data.json_objs.top().add_value_to_key(data.keys.top().first, data.value);
-							if (not ok) {
+							if (not ok)
+							{
 								return std::unexpected(error(error_type::parsing_error,
 								    "internal parsing error\n[adding value to object]"));
 							}
@@ -855,9 +986,11 @@ namespace ljson {
 						return std::monostate();
 					}
 
-					static std::expected<std::monostate, error> fill_array_data(struct parsing_data& data) {
+					static std::expected<std::monostate, error> fill_array_data(struct parsing_data& data)
+					{
 						auto ok = data.json_objs.top().add_value_to_array(data.value);
-						if (not ok) {
+						if (not ok)
+						{
 							return std::unexpected(error(
 							    error_type::parsing_error, "internal parsing error\n[adding value to array]"));
 						}
@@ -865,35 +998,41 @@ namespace ljson {
 						return std::monostate();
 					}
 
-					static bool run_till_end_of_statement(struct parsing_data& data) {
+					static bool run_till_end_of_statement(struct parsing_data& data)
+					{
 						if (data.hierarchy.empty())
 							return false;
 						else if (data.hierarchy.top().first != json_syntax::maybe_empty_space_after)
 							return false;
-						else if (data.line[data.i] == ',' || data.line[data.i] == '\n') {
+						else if (data.line[data.i] == ',' || data.line[data.i] == '\n')
+						{
 							data.hierarchy.pop();
 							if (not data.hierarchy.empty() && data.hierarchy.top().first == json_syntax::column)
 								data.hierarchy.pop();
 
-							if (not data.keys.empty()) {
+							if (not data.keys.empty())
+							{
 								data.keys.top().first.clear();
 								data.keys.top().second = key_type::none;
 							}
 							return true;
-						} else
+						}
+						else
 							return false;
 					}
 			};
 
 			struct closing_bracket {
-					static std::expected<bool, error> handle_closing_bracket(struct parsing_data& data) {
+					static std::expected<bool, error> handle_closing_bracket(struct parsing_data& data)
+					{
 						if (data.line[data.i] != '}' || value::is_string(data))
 							return false;
 
 						if (not data.hierarchy.empty() &&
 						    data.hierarchy.top().first == json_syntax::opening_bracket)
 							data.hierarchy.pop();
-						else {
+						else
+						{
 							if (not data.hierarchy.empty())
 								return std::unexpected(error(error_type::parsing_error,
 								    std::format("error at: {}, hierarchy.size: {}: line_num: {}, line: {}",
@@ -909,7 +1048,8 @@ namespace ljson {
 			};
 
 			struct syntax_error {
-					static std::expected<bool, error> handle_syntax_error(struct parsing_data& data) {
+					static std::expected<bool, error> handle_syntax_error(struct parsing_data& data)
+					{
 						if (end_statement::is_end_statement(data))
 							return false;
 						return std::unexpected(
@@ -917,11 +1057,13 @@ namespace ljson {
 											 data.line, expected_x_but_found_y(data))));
 					}
 
-					static std::string expected_x_but_found_y(const struct parsing_data& data) {
+					static std::string expected_x_but_found_y(const struct parsing_data& data)
+					{
 						if (data.hierarchy.empty())
 							return std::format("expected '{{' but found '{}'", data.line[data.i]);
 
-						switch (data.hierarchy.top().first) {
+						switch (data.hierarchy.top().first)
+						{
 							case json_syntax::array:
 								return std::format(
 								    "expected 'array values' but found '{}'", data.line[data.i]);
@@ -951,13 +1093,16 @@ namespace ljson {
 			};
 	};
 
-	node::node() {
+	node::node()
+	{
 	}
 
-	node::node(const struct value& value) : _node(std::make_shared<struct value>(value)) {
+	node::node(const struct value& value) : _node(std::make_shared<struct value>(value))
+	{
 	}
 
-	node::node(enum value_type type) {
+	node::node(enum value_type type)
+	{
 		if (type == value_type::object)
 			_node = std::make_shared<ljson::object>();
 		else if (type == value_type::array)
@@ -966,89 +1111,119 @@ namespace ljson {
 			_node = std::make_shared<struct value>();
 	}
 
-	void node::handle_std_any(const std::any& any_value, std::function<void(std::any)> insert_func) {
-		if (any_value.type() == typeid(ljson::node)) {
+	void node::handle_std_any(const std::any& any_value, std::function<void(std::any)> insert_func)
+	{
+		if (any_value.type() == typeid(ljson::node))
+		{
 			auto val = std::any_cast<ljson::node>(any_value);
 			insert_func(val);
-		} else {
+		}
+		else
+		{
 			struct value value;
-			if (any_value.type() == typeid(bool)) {
+			if (any_value.type() == typeid(bool))
+			{
 				auto val    = std::any_cast<bool>(any_value);
 				value.type  = value_type::boolean;
 				value.value = (val == true ? "true" : "false");
 				insert_func(value);
-			} else if (any_value.type() == typeid(double)) {
+			}
+			else if (any_value.type() == typeid(double))
+			{
 				auto val    = std::any_cast<double>(any_value);
 				value.type  = value_type::number;
 				value.value = std::to_string(val);
 				insert_func(value);
-			} else if (any_value.type() == typeid(int)) {
+			}
+			else if (any_value.type() == typeid(int))
+			{
 				auto val    = std::any_cast<int>(any_value);
 				value.type  = value_type::number;
 				value.value = std::to_string(val);
 				insert_func(value);
-			} else if (any_value.type() == typeid(float)) {
+			}
+			else if (any_value.type() == typeid(float))
+			{
 				auto val    = std::any_cast<float>(any_value);
 				value.type  = value_type::number;
 				value.value = std::to_string(val);
 				insert_func(value);
-			} else if (any_value.type() == typeid(const char*)) {
+			}
+			else if (any_value.type() == typeid(const char*))
+			{
 				auto val    = std::any_cast<const char*>(any_value);
 				value.type  = value_type::string;
 				value.value = val;
 				insert_func(value);
-			} else if (any_value.type() == typeid(std::string)) {
+			}
+			else if (any_value.type() == typeid(std::string))
+			{
 				auto val    = std::any_cast<std::string>(any_value);
 				value.type  = value_type::string;
 				value.value = val;
 				insert_func(value);
-			} else {
+			}
+			else
+			{
 				throw error(error_type::wrong_type,
 				    std::string("unknown type given to ljson::node constructor: ") + any_value.type().name());
 			}
 		}
 	}
 
-	node::node(const std::initializer_list<std::pair<std::string, std::any>>& pairs) : _node(std::make_shared<ljson::object>()) {
+	node::node(const std::initializer_list<std::pair<std::string, std::any>>& pairs) : _node(std::make_shared<ljson::object>())
+	{
 		std::string key;
 		auto	    map = this->as_object();
 
-		auto insert_func = [&](const std::any& value) {
-			if (value.type() == typeid(ljson::node)) {
+		auto insert_func = [&](const std::any& value)
+		{
+			if (value.type() == typeid(ljson::node))
+			{
 				auto val = std::any_cast<ljson::node>(value);
 				map->insert(key, val);
-			} else {
+			}
+			else
+			{
 				auto val = std::any_cast<struct value>(value);
 				map->insert(key, ljson::node(val));
 			}
 		};
 
-		for (const auto& pair : pairs) {
+		for (const auto& pair : pairs)
+		{
 			key = pair.first;
 			this->handle_std_any(pair.second, insert_func);
 			key.clear();
 		}
 	}
 
-	node::node(const std::initializer_list<std::any>& val) : _node(std::make_shared<ljson::array>()) {
+	node::node(const std::initializer_list<std::any>& val) : _node(std::make_shared<ljson::array>())
+	{
 		auto vector = this->as_array();
 
-		auto insert_func = [&](const std::any& value) {
-			if (value.type() == typeid(ljson::node)) {
+		auto insert_func = [&](const std::any& value)
+		{
+			if (value.type() == typeid(ljson::node))
+			{
 				auto val = std::any_cast<ljson::node>(value);
 				vector->push_back(val);
-			} else {
+			}
+			else
+			{
 				auto val = std::any_cast<struct value>(value);
 				vector->push_back(ljson::node(val));
 			}
 		};
 
-		for (const auto& value : val) {
+		for (const auto& value : val)
+		{
 			this->handle_std_any(value, insert_func);
 		}
 	}
 
-	std::expected<class ljson::node, error> node::add_array_to_key(const std::string& key) {
+	std::expected<class ljson::node, error> node::add_array_to_key(const std::string& key)
+	{
 		if (not this->is_object())
 			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add array to an object node"));
 
@@ -1056,7 +1231,8 @@ namespace ljson {
 		return obj->insert(key, ljson::node(value_type::array));
 	}
 
-	std::expected<class ljson::node, error> node::add_object_to_array() {
+	std::expected<class ljson::node, error> node::add_object_to_array()
+	{
 		if (not this->is_array())
 			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add object to an array node"));
 
@@ -1065,7 +1241,8 @@ namespace ljson {
 		return arr->back();
 	}
 
-	std::expected<class ljson::node, error> node::add_node_to_array(const ljson::node& node) {
+	std::expected<class ljson::node, error> node::add_node_to_array(const ljson::node& node)
+	{
 		if (not this->is_array())
 			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an array node"));
 
@@ -1075,7 +1252,8 @@ namespace ljson {
 		return arr->back();
 	}
 
-	std::expected<class ljson::node, error> node::add_node_to_array(const size_t index, const ljson::node& node) {
+	std::expected<class ljson::node, error> node::add_node_to_array(const size_t index, const ljson::node& node)
+	{
 		if (not this->is_array())
 			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an array node"));
 
@@ -1089,7 +1267,8 @@ namespace ljson {
 		return (*arr)[index];
 	}
 
-	std::expected<class ljson::node, error> node::add_object_to_key(const std::string& key) {
+	std::expected<class ljson::node, error> node::add_object_to_key(const std::string& key)
+	{
 		if (not this->is_object())
 			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add object to an object node"));
 
@@ -1097,7 +1276,8 @@ namespace ljson {
 		return obj->insert(key, ljson::node(value_type::object));
 	}
 
-	std::expected<class ljson::node, error> node::add_node_to_key(const std::string& key, const ljson::node& node) {
+	std::expected<class ljson::node, error> node::add_node_to_key(const std::string& key, const ljson::node& node)
+	{
 		if (not this->is_object())
 			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an object node"));
 
@@ -1105,7 +1285,8 @@ namespace ljson {
 		return obj->insert(key, node);
 	}
 
-	std::expected<class ljson::node, error> node::add_value_to_key(const std::string& key, const struct value& value) {
+	std::expected<class ljson::node, error> node::add_value_to_key(const std::string& key, const struct value& value)
+	{
 		if (not this->is_object())
 			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an object node"));
 
@@ -1113,7 +1294,8 @@ namespace ljson {
 		return obj->insert(key, ljson::node(value));
 	}
 
-	std::expected<class ljson::node, error> node::add_value_to_array(const struct value& value) {
+	std::expected<class ljson::node, error> node::add_value_to_array(const struct value& value)
+	{
 		if (not this->is_array())
 			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an array node"));
 
@@ -1122,7 +1304,8 @@ namespace ljson {
 		return arr->back();
 	}
 
-	std::expected<class ljson::node, error> node::add_value_to_array(const size_t index, const struct value& value) {
+	std::expected<class ljson::node, error> node::add_value_to_array(const size_t index, const struct value& value)
+	{
 		if (not this->is_array())
 			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an array node"));
 
@@ -1136,61 +1319,71 @@ namespace ljson {
 		return (*arr)[index];
 	}
 
-	std::shared_ptr<struct value> node::as_value() const {
+	std::shared_ptr<struct value> node::as_value() const
+	{
 		if (not this->is_value())
 			throw error(error_type::wrong_type, "wrong type: trying to cast a non-value node to a value");
 
 		return std::get<std::shared_ptr<struct value>>(_node);
 	}
 
-	std::shared_ptr<ljson::array> node::as_array() const {
+	std::shared_ptr<ljson::array> node::as_array() const
+	{
 		if (not this->is_array())
 			throw error(error_type::wrong_type, "wrong type: trying to cast a non-array node to an array");
 
 		return std::get<std::shared_ptr<ljson::array>>(_node);
 	}
 
-	std::shared_ptr<ljson::object> node::as_object() const {
+	std::shared_ptr<ljson::object> node::as_object() const
+	{
 		if (not this->is_object())
 			throw error(error_type::wrong_type, "wrong type: trying to cast a non-object node to an object");
 
 		return std::get<std::shared_ptr<ljson::object>>(_node);
 	}
 
-	bool node::is_value() const {
+	bool node::is_value() const
+	{
 		if (std::holds_alternative<std::shared_ptr<struct value>>(_node))
 			return true;
 		else
 			return false;
 	}
 
-	bool node::is_array() const {
+	bool node::is_array() const
+	{
 		if (std::holds_alternative<std::shared_ptr<ljson::array>>(_node))
 			return true;
 		else
 			return false;
 	}
 
-	bool node::is_object() const {
+	bool node::is_object() const
+	{
 		if (std::holds_alternative<std::shared_ptr<ljson::object>>(_node))
 			return true;
 		else
 			return false;
 	}
 
-	value_type node::type() const {
+	value_type node::type() const
+	{
 		if (this->is_object())
 			return value_type::object;
 		else if (this->is_array())
 			return value_type::array;
-		else if (this->is_value()) {
+		else if (this->is_value())
+		{
 			auto val = std::get<std::shared_ptr<struct value>>(_node);
 			return val->type;
-		} else
+		}
+		else
 			return value_type::unknown;
 	}
 
-	bool node::contains(const std::string& key) {
+	bool node::contains(const std::string& key)
+	{
 		if (not this->is_object())
 			return false;
 
@@ -1203,7 +1396,8 @@ namespace ljson {
 			return false;
 	}
 
-	class node& node::at(const std::string& object_key) {
+	class node& node::at(const std::string& object_key)
+	{
 		auto obj = this->as_object();
 		auto itr = obj->find(object_key);
 		if (itr == obj->end())
@@ -1211,7 +1405,8 @@ namespace ljson {
 		return itr->second;
 	}
 
-	class node& node::at(const size_t array_index) {
+	class node& node::at(const size_t array_index)
+	{
 		auto arr = this->as_array();
 		if (array_index >= arr->size())
 			throw error(error_type::key_not_found, std::format("index: '{}' not found", array_index));
@@ -1219,39 +1414,50 @@ namespace ljson {
 		return arr->at(array_index);
 	}
 
-	class node& node::operator=(const std::shared_ptr<struct value>& val) {
-		if (this->is_value()) {
+	class node& node::operator=(const std::shared_ptr<struct value>& val)
+	{
+		if (this->is_value())
+		{
 			auto n	 = this->as_value();
 			n->value = val->value;
 			n->type	 = val->type;
-		} else {
+		}
+		else
+		{
 			_node = val;
 		}
 		return *this;
 	}
 
-	class node& node::operator=(const struct value& val) {
-		if (this->is_value()) {
+	class node& node::operator=(const struct value& val)
+	{
+		if (this->is_value())
+		{
 			auto n	 = this->as_value();
 			n->value = val.value;
 			n->type	 = val.type;
-		} else {
+		}
+		else
+		{
 			_node = std::make_shared<struct value>(val);
 		}
 		return *this;
 	}
 
-	class node& node::operator=(const std::shared_ptr<ljson::array>& arr) {
+	class node& node::operator=(const std::shared_ptr<ljson::array>& arr)
+	{
 		_node = arr;
 		return *this;
 	}
 
-	class node& node::operator=(const std::shared_ptr<ljson::object>& obj) {
+	class node& node::operator=(const std::shared_ptr<ljson::object>& obj)
+	{
 		_node = obj;
 		return *this;
 	}
 
-	std::expected<std::monostate, error> node::set(const struct value& value) {
+	std::expected<std::monostate, error> node::set(const struct value& value)
+	{
 		if (not this->is_value())
 			return std::unexpected(error(error_type::wrong_type, "wrong type: can't set value to non-value node-class"));
 
@@ -1263,7 +1469,8 @@ namespace ljson {
 		return std::monostate();
 	}
 
-	std::expected<std::monostate, error> node::set(const std::string& value) {
+	std::expected<std::monostate, error> node::set(const std::string& value)
+	{
 		struct value new_value;
 		new_value.type	= ljson::value_type::string;
 		new_value.value = value;
@@ -1273,7 +1480,8 @@ namespace ljson {
 		return std::monostate();
 	}
 
-	std::expected<std::monostate, error> node::set(const double value) {
+	std::expected<std::monostate, error> node::set(const double value)
+	{
 		struct value new_value;
 		new_value.type	= ljson::value_type::number;
 		new_value.value = value;
@@ -1283,7 +1491,8 @@ namespace ljson {
 		return std::monostate();
 	}
 
-	std::expected<std::monostate, error> node::set(const bool value) {
+	std::expected<std::monostate, error> node::set(const bool value)
+	{
 		struct value new_value;
 		new_value.type	= ljson::value_type::boolean;
 		new_value.value = (value == true ? "true" : "false");
@@ -1293,13 +1502,15 @@ namespace ljson {
 		return std::monostate();
 	}
 
-	std::expected<std::monostate, error> node::set(const char* value) {
+	std::expected<std::monostate, error> node::set(const char* value)
+	{
 		std::string str = value;
 		this->set(str);
 		return std::monostate();
 	}
 
-	std::expected<std::monostate, error> node::set(const ljson::null_value) {
+	std::expected<std::monostate, error> node::set(const ljson::null_value)
+	{
 		struct value new_value;
 		new_value.type	= ljson::value_type::null;
 		new_value.value = "null";
@@ -1309,27 +1520,33 @@ namespace ljson {
 		return std::monostate();
 	}
 
-	void node::dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf, int indent) const {
-
+	void node::dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf, int indent) const
+	{
 		using node_or_value = std::variant<std::shared_ptr<struct value>, ljson::node>;
 
-		auto dump_val = [&indent, &out_func, &indent_conf](const node_or_value& value_or_nclass) {
-			if (std::holds_alternative<std::shared_ptr<struct value>>(value_or_nclass)) {
+		auto dump_val = [&indent, &out_func, &indent_conf](const node_or_value& value_or_nclass)
+		{
+			if (std::holds_alternative<std::shared_ptr<struct value>>(value_or_nclass))
+			{
 				auto val = std::get<std::shared_ptr<struct value>>(value_or_nclass);
 				if (val->type == ljson::value_type::string)
 					out_func(std::format("\"{}\"", val->value));
 				else
 					out_func(std::format("{}", val->value));
-			} else {
+			}
+			else
+			{
 				std::get<ljson::node>(value_or_nclass).dump(out_func, indent_conf, indent + indent_conf.second);
 			}
 		};
 
-		if (this->is_object()) {
+		if (this->is_object())
+		{
 			out_func(std::format("{{\n"));
 			auto   map   = this->as_object();
 			size_t count = 0;
-			for (const auto& pair : *map) {
+			for (const auto& pair : *map)
+			{
 				out_func(
 				    std::format("{}\"{}\": ", std::string(indent + indent_conf.second, indent_conf.first), pair.first));
 				dump_val(pair.second);
@@ -1340,11 +1557,14 @@ namespace ljson {
 				out_func(std::format("\n"));
 			}
 			out_func(std::format("{}}}", std::string(indent, indent_conf.first)));
-		} else if (this->is_array()) {
+		}
+		else if (this->is_array())
+		{
 			out_func(std::format("[\n"));
 			auto   vector = this->as_array();
 			size_t count  = 0;
-			for (const auto& array_value : *vector) {
+			for (const auto& array_value : *vector)
+			{
 				out_func(std::format("{}", std::string(indent + indent_conf.second, indent_conf.first)));
 				dump_val(array_value);
 
@@ -1354,19 +1574,22 @@ namespace ljson {
 				out_func(std::format("\n"));
 			}
 			out_func(std::format("{}]", std::string(indent, indent_conf.first)));
-		} else if (this->is_value()) {
+		}
+		else if (this->is_value())
+		{
 			auto val = this->as_value();
 			dump_val(val);
 		}
 	}
 
-	void node::dump_to_stdout(const std::pair<char, int>& indent_conf) {
+	void node::dump_to_stdout(const std::pair<char, int>& indent_conf)
+	{
 		auto func = [](const std::string& output) { std::cout << output; };
 		this->dump(func, indent_conf);
 	}
 
-	std::expected<std::monostate, error> node::write_to_file(
-	    const std::filesystem::path& path, const std::pair<char, int>& indent_conf) {
+	std::expected<std::monostate, error> node::write_to_file(const std::filesystem::path& path, const std::pair<char, int>& indent_conf)
+	{
 		std::ofstream file(path);
 		if (not file.is_open())
 			return std::unexpected(error(error_type::filesystem_error, std::strerror(errno)));
@@ -1378,18 +1601,22 @@ namespace ljson {
 		return std::monostate();
 	}
 
-	parser::parser() {
+	parser::parser()
+	{
 	}
 
-	void parser::parsing(struct parsing_data& data) {
-		auto done_or_not_ok = [](const std::expected<bool, error>& ok) -> bool {
+	void parser::parsing(struct parsing_data& data)
+	{
+		auto done_or_not_ok = [](const std::expected<bool, error>& ok) -> bool
+		{
 			if ((ok && ok.value()) || not ok)
 				return true;
 			else
 				return false;
 		};
 
-		auto throw_error_if_not_ok = [](const std::expected<bool, error>& ok) -> void {
+		auto throw_error_if_not_ok = [](const std::expected<bool, error>& ok) -> void
+		{
 			if (not ok)
 				throw ok.error();
 		};
@@ -1399,32 +1626,54 @@ namespace ljson {
 		if (parser_syntax::end_statement::run_till_end_of_statement(data))
 			return;
 
-		if (ok = parser_syntax::empty::handle_empty(data); done_or_not_ok(ok)) {
+		if (ok = parser_syntax::empty::handle_empty(data); done_or_not_ok(ok))
+		{
 			throw_error_if_not_ok(ok);
-		} else if (ok = parser_syntax::quotes::handle_quotes(data); done_or_not_ok(ok)) {
+		}
+		else if (ok = parser_syntax::quotes::handle_quotes(data); done_or_not_ok(ok))
+		{
 			throw_error_if_not_ok(ok);
-		} else if (ok = parser_syntax::key::handle_key(data); done_or_not_ok(ok)) {
+		}
+		else if (ok = parser_syntax::key::handle_key(data); done_or_not_ok(ok))
+		{
 			throw_error_if_not_ok(ok);
-		} else if (ok = parser_syntax::column::handle_column(data); done_or_not_ok(ok)) {
+		}
+		else if (ok = parser_syntax::column::handle_column(data); done_or_not_ok(ok))
+		{
 			throw_error_if_not_ok(ok);
-		} else if (ok = parser_syntax::value::handle_value(data); done_or_not_ok(ok)) {
+		}
+		else if (ok = parser_syntax::value::handle_value(data); done_or_not_ok(ok))
+		{
 			throw_error_if_not_ok(ok);
-		} else if (ok = parser_syntax::object::handle_object(data); done_or_not_ok(ok)) {
+		}
+		else if (ok = parser_syntax::object::handle_object(data); done_or_not_ok(ok))
+		{
 			throw_error_if_not_ok(ok);
-		} else if (ok = parser_syntax::array::handle_array(data); done_or_not_ok(ok)) {
+		}
+		else if (ok = parser_syntax::array::handle_array(data); done_or_not_ok(ok))
+		{
 			throw_error_if_not_ok(ok);
-		} else if (ok = parser_syntax::end_statement::handle_end_statement(data); done_or_not_ok(ok)) {
+		}
+		else if (ok = parser_syntax::end_statement::handle_end_statement(data); done_or_not_ok(ok))
+		{
 			throw_error_if_not_ok(ok);
-		} else if (ok = parser_syntax::open_bracket::handle_open_bracket(data); done_or_not_ok(ok)) {
+		}
+		else if (ok = parser_syntax::open_bracket::handle_open_bracket(data); done_or_not_ok(ok))
+		{
 			throw_error_if_not_ok(ok);
-		} else if (ok = parser_syntax::closing_bracket::handle_closing_bracket(data); done_or_not_ok(ok)) {
+		}
+		else if (ok = parser_syntax::closing_bracket::handle_closing_bracket(data); done_or_not_ok(ok))
+		{
 			throw_error_if_not_ok(ok);
-		} else if (ok = parser_syntax::syntax_error::handle_syntax_error(data); done_or_not_ok(ok)) {
+		}
+		else if (ok = parser_syntax::syntax_error::handle_syntax_error(data); done_or_not_ok(ok))
+		{
 			throw_error_if_not_ok(ok);
 		}
 	}
 
-	ljson::node parser::parse(const std::filesystem::path& path) {
+	ljson::node parser::parse(const std::filesystem::path& path)
+	{
 		std::unique_ptr<std::ifstream> file = std::make_unique<std::ifstream>(path);
 		if (not file->is_open())
 			throw ljson::error(
@@ -1434,9 +1683,11 @@ namespace ljson {
 		data.json_objs.push(this->json_data);
 		data.keys.push({"", key_type::simple_key});
 
-		while (std::getline(*file, data.line)) {
+		while (std::getline(*file, data.line))
+		{
 			data.line += "\n";
-			for (data.i = 0; data.i < data.line.size(); data.i++) {
+			for (data.i = 0; data.i < data.line.size(); data.i++)
+			{
 				this->parsing(data);
 			}
 
@@ -1448,18 +1699,21 @@ namespace ljson {
 		return this->json_data;
 	}
 
-	ljson::node parser::parse(const std::string& raw_json) {
+	ljson::node parser::parse(const std::string& raw_json)
+	{
 		struct parsing_data data;
 
 		data.json_objs.push(this->json_data);
 		data.keys.push({"", key_type::simple_key});
 
-		for (size_t i = 0; i < raw_json.size(); i++) {
+		for (size_t i = 0; i < raw_json.size(); i++)
+		{
 			data.line += raw_json[i];
 
-			if (not data.line.empty() &&
-			    (data.line.back() == '\n' || data.i == raw_json.size() - 1 || data.line.back() == ',')) {
-				for (data.i = 0; data.i < data.line.size(); data.i++) {
+			if (not data.line.empty() && (data.line.back() == '\n' || data.i == raw_json.size() - 1 || data.line.back() == ','))
+			{
+				for (data.i = 0; data.i < data.line.size(); data.i++)
+				{
 					this->parsing(data);
 				}
 				data.line.clear();
@@ -1471,21 +1725,26 @@ namespace ljson {
 		return this->json_data;
 	}
 
-	parser::~parser() {
+	parser::~parser()
+	{
 	}
 
-	error::error(error_type err, const std::string& message) : err_type(err), msg(message) {
+	error::error(error_type err, const std::string& message) : err_type(err), msg(message)
+	{
 	}
 
-	const char* error::what() const noexcept {
+	const char* error::what() const noexcept
+	{
 		return msg.c_str();
 	}
 
-	const std::string& error::message() const noexcept {
+	const std::string& error::message() const noexcept
+	{
 		return msg;
 	}
 
-	error_type error::value() {
+	error_type error::value()
+	{
 		return err_type;
 	}
 }
