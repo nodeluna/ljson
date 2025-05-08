@@ -18,7 +18,6 @@
 #include <fstream>
 #include <format>
 #include <functional>
-#include <system_error>
 #include <unordered_set>
 #include <variant>
 #include <vector>
@@ -77,7 +76,7 @@ namespace ljson {
 		wronge_index,
 	};
 
-	class error : public std::exception {
+	class error {
 		private:
 			error_type  err_type;
 			std::string msg;

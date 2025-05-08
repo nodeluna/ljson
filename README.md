@@ -1,11 +1,24 @@
 ljson is an easy to use header only json library for c++
 
-# usage
-to use in your project simply #include the <ljson.hpp> header
-
 # requirements
 - compiler that supports c++23
-- gcc 12 or clang 16
+- gcc 13 or clang 18
+
+# usage
+
+## header-only
+
+- clone the repo
+- add the include/ directory to your build system
+- include <ljson.hpp>
+
+## c++20 modules
+
+- clone the repo
+- add the mod/ and include/ directory to your build system
+- import ljson;
+
+check out the example at test/import_ljson/ to see how to use the library as a module in cmake
 
 # tutorial
 
@@ -26,7 +39,7 @@ int main() {
 		node.write_to_file("new_file.json" /*, indent_config */);
 
 
-	} catch (const std::exception& error) {
+	} catch (const ljson::error& error) {
 		// parsing error, JSON syntax error
 		// handle error
 	}
@@ -105,7 +118,7 @@ int main() {
 		node.write_to_file("new_file.json"); // write the new changes
 
 
-	} catch (const std::exception& error) {
+	} catch (const ljson::error& error) {
 		// parsing error, JSON syntax error
 		// handle error
 	}
@@ -138,7 +151,7 @@ int main() {
 		}
 
 
-	} catch (const std::exception& error) {
+	} catch (const ljson::error& error) {
 		// parsing error, JSON syntax error
 		// handle error
 	}
@@ -172,7 +185,7 @@ int main() {
 		}
 
 
-	} catch (const std::exception& error) {
+	} catch (const ljson::error& error) {
 		// parsing error, JSON syntax error
 		// handle error
 	}
