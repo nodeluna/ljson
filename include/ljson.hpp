@@ -196,9 +196,9 @@ namespace ljson {
 			bool			       is_array() const;
 			bool			       is_object() const;
 			value_type		       type() const;
-			bool			       contains(const std::string& key);
-			class node&		       at(const std::string& object_key);
-			class node&		       at(const size_t array_index);
+			bool			       contains(const std::string& key) const;
+			class node&		       at(const std::string& object_key) const;
+			class node&		       at(const size_t array_index) const;
 			class node&		       operator=(const std::shared_ptr<struct value>& val);
 			class node&		       operator=(const struct value& val);
 			class node&		       operator=(const std::shared_ptr<ljson::array>& arr);
@@ -1387,7 +1387,7 @@ namespace ljson {
 			return value_type::unknown;
 	}
 
-	bool node::contains(const std::string& key)
+	bool node::contains(const std::string& key) const
 	{
 		if (not this->is_object())
 			return false;
@@ -1401,7 +1401,7 @@ namespace ljson {
 			return false;
 	}
 
-	class node& node::at(const std::string& object_key)
+	class node& node::at(const std::string& object_key) const
 	{
 		auto obj = this->as_object();
 		auto itr = obj->find(object_key);
@@ -1410,7 +1410,7 @@ namespace ljson {
 		return itr->second;
 	}
 
-	class node& node::at(const size_t array_index)
+	class node& node::at(const size_t array_index) const
 	{
 		auto arr = this->as_array();
 		if (array_index >= arr->size())
