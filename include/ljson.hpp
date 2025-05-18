@@ -184,8 +184,11 @@ namespace ljson {
 			std::expected<class ljson::node, error> add_node_to_array(const size_t index, const ljson::node& node);
 			std::expected<class ljson::node, error> add_object_to_key(const std::string& key);
 			std::expected<class ljson::node, error> add_value_to_key(const std::string& key, const struct value& value);
+			std::expected<class ljson::node, error> add_value_to_key(const std::string& key, const std::string& value);
 			std::expected<class ljson::node, error> add_value_to_array(const struct value& value);
+			std::expected<class ljson::node, error> add_value_to_array(const std::string& value);
 			std::expected<class ljson::node, error> add_value_to_array(const size_t index, const struct value& value);
+			std::expected<class ljson::node, error> add_value_to_array(const size_t index, const std::string& value);
 			std::expected<class ljson::node, error> add_node_to_key(const std::string& key, const ljson::node& node);
 
 			std::shared_ptr<struct value>  as_value() const;
@@ -213,6 +216,7 @@ namespace ljson {
 			void dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf = {' ', 4},
 			    int indent = 0) const;
 			void dump_to_stdout(const std::pair<char, int>& indent_conf = {' ', 4});
+			std::string			     dump_to_string(const std::pair<char, int>& indent_conf = {' ', 4});
 			std::expected<std::monostate, error> write_to_file(
 			    const std::filesystem::path& path, const std::pair<char, int>& indent_conf = {' ', 4});
 	};
@@ -1298,6 +1302,11 @@ namespace ljson {
 		return obj->insert(key, ljson::node(value));
 	}
 
+	std::expected<class ljson::node, error> node::add_value_to_key(const std::string& key, const std::string& value)
+	{
+		return this->add_value_to_key(key, {.value = value, .type = value_type::string});
+	}
+
 	std::expected<class ljson::node, error> node::add_value_to_array(const struct value& value)
 	{
 		if (not this->is_array())
@@ -1306,6 +1315,11 @@ namespace ljson {
 		auto arr = this->as_array();
 		arr->push_back(ljson::node(value));
 		return arr->back();
+	}
+
+	std::expected<class ljson::node, error> node::add_value_to_array(const std::string& value)
+	{
+		return this->add_value_to_array({.value = value, .type = value_type::string});
 	}
 
 	std::expected<class ljson::node, error> node::add_value_to_array(const size_t index, const struct value& value)
@@ -1321,6 +1335,11 @@ namespace ljson {
 		(*arr)[index] = ljson::node(value);
 
 		return (*arr)[index];
+	}
+
+	std::expected<class ljson::node, error> node::add_value_to_array(const size_t index, const std::string& value)
+	{
+		return this->add_value_to_array(index, {.value = value, .type = value_type::string});
 	}
 
 	std::shared_ptr<struct value> node::as_value() const
@@ -1590,6 +1609,15 @@ namespace ljson {
 	{
 		auto func = [](const std::string& output) { std::cout << output; };
 		this->dump(func, indent_conf);
+	}
+
+	std::string node::dump_to_string(const std::pair<char, int>& indent_conf)
+	{
+		std::string data;
+		auto	    func = [&data](const std::string& output) { data += output; };
+		this->dump(func, indent_conf);
+
+		return data;
 	}
 
 	std::expected<std::monostate, error> node::write_to_file(const std::filesystem::path& path, const std::pair<char, int>& indent_conf)
