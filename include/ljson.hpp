@@ -930,10 +930,10 @@ namespace ljson {
 
 					static bool is_end_statement(const struct parsing_data& data)
 					{
-						if (data.line[data.i] == ',')
+						if (data.line[data.i] == ',' && not value::is_string(data))
 							return true;
 						else if (data.i == data.line.size() - 1 && not object::brackets_at_end_of_line(data) &&
-							 not array::brackets_at_end_of_line(data))
+							 not array::brackets_at_end_of_line(data) && not value::is_string(data))
 							return true;
 						else if (not data.hierarchy.empty() &&
 							 data.hierarchy.top().first == json_syntax::flush_value)
