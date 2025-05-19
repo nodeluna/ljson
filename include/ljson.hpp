@@ -426,21 +426,9 @@ namespace ljson {
 					static std::expected<bool, error> handle_quotes(struct parsing_data& data)
 					{
 						bool found_qoute = false;
-						if (first_quote(data))
+						if (quote(data))
 						{
 							if (data.hierarchy.top().first == json_syntax::quotes_1)
-							{
-								if (not data.keys.empty() && data.keys.top().first.empty())
-									data.keys.top().second = key_type::simple_key;
-								data.hierarchy.pop();
-								return true;
-							}
-
-							found_qoute = true;
-						}
-						else if (second_quote(data))
-						{
-							if (data.hierarchy.top().first == json_syntax::quotes_2)
 							{
 								if (not data.keys.empty() && data.keys.top().first.empty())
 									data.keys.top().second = key_type::simple_key;
@@ -467,7 +455,8 @@ namespace ljson {
 								return end_statement::flush_value(data);
 							}
 							else
-								data.hierarchy.push({json_syntax::quotes_1, data.line_number});
+								data.hierarchy.push(
+								    {json_syntax::quotes_1, data.line_number});
 
 							return true;
 						}
@@ -475,19 +464,9 @@ namespace ljson {
 						return false;
 					}
 
-					static bool first_quote(const struct parsing_data& data)
+					static bool quote(const struct parsing_data& data)
 					{
-						if (data.line[data.i] == '"' &&
-						    (data.hierarchy.empty() || data.hierarchy.top().first != json_syntax::quotes_2))
-							return true;
-						else
-							return false;
-					}
-
-					static bool second_quote(const struct parsing_data& data)
-					{
-						if (data.line[data.i] == '\'' &&
-						    (data.hierarchy.empty() || data.hierarchy.top().first != json_syntax::quotes_1))
+						if (data.line[data.i] == '"' && data.value.type != value_type::temp_escape_type)
 							return true;
 						else
 							return false;
