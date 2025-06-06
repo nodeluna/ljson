@@ -21,6 +21,7 @@
 #include <unordered_set>
 #include <variant>
 #include <vector>
+#include <cassert>
 #include <source_location>
 
 namespace ljson {
@@ -122,8 +123,8 @@ namespace ljson {
 	};
 
 	struct value {
-			std::string value;
-			value_type  type = value_type::none;
+			std::string value = "";
+			value_type  type  = value_type::none;
 
 			std::string type_name() const
 			{
@@ -141,6 +142,8 @@ namespace ljson {
 						return "object";
 					case ljson::value_type::number:
 						return "number";
+					case ljson::value_type::none:
+						return "none";
 					default:
 						return "unknown";
 				}
@@ -343,8 +346,9 @@ namespace ljson {
 
 	class parser {
 		private:
-			ljson::node json_data = ljson::node(value_type::object);
-
+			bool done_or_not_ok(const std::expected<bool, error>& ok);
+			void throw_error_if_not_ok(const std::expected<bool, error>& ok);
+			void check_unhandled_hierarchy(const std::string& raw_json, struct parsing_data& data);
 			void parsing(struct parsing_data& data);
 
 		public:
@@ -352,6 +356,7 @@ namespace ljson {
 			~parser();
 			ljson::node parse(const std::filesystem::path& path);
 			ljson::node parse(const std::string& raw_json);
+			ljson::node parse(const char* raw_json);
 	};
 }
 
@@ -455,8 +460,7 @@ namespace ljson {
 								return end_statement::flush_value(data);
 							}
 							else
-								data.hierarchy.push(
-								    {json_syntax::quotes_1, data.line_number});
+								data.hierarchy.push({json_syntax::quotes_1, data.line_number});
 
 							return true;
 						}
@@ -476,8 +480,7 @@ namespace ljson {
 					{
 						if (hierarchy.empty())
 							return false;
-						else if (hierarchy.top().first == json_syntax::quotes_1 ||
-							 hierarchy.top().first == json_syntax::quotes_2)
+						else if (hierarchy.top().first == json_syntax::quotes_1)
 							return true;
 						else
 							return false;
@@ -578,7 +581,6 @@ namespace ljson {
 						if (hierarchy.empty())
 							return false;
 						else if (hierarchy.top().first == json_syntax::quotes_1 ||
-							 hierarchy.top().first == json_syntax::quotes_2 ||
 							 hierarchy.top().first == json_syntax::string_value)
 							return true;
 						return false;
@@ -652,7 +654,9 @@ namespace ljson {
 
 					static bool is_object(const struct parsing_data& data)
 					{
-						if (not data.json_objs.empty() && data.json_objs.top().type() == value_type::object)
+						if (data.json_objs.empty() || data.json_objs.size() == 1)
+							return false;
+						else if (data.json_objs.top().type() == value_type::object)
 							return true;
 						return false;
 					}
@@ -940,6 +944,10 @@ namespace ljson {
 						{
 							return true;
 						}
+						else if (data.line[data.i] == '}' && not data.value.value.empty())
+						{
+							return true;
+						}
 						else
 							return false;
 					}
@@ -1082,6 +1090,7 @@ namespace ljson {
 
 	node::node()
 	{
+		_node = std::make_shared<ljson::object>();
 	}
 
 	node::node(const struct value& value) : _node(std::make_shared<struct value>(value))
@@ -1531,6 +1540,7 @@ namespace ljson {
 			if (std::holds_alternative<std::shared_ptr<struct value>>(value_or_nclass))
 			{
 				auto val = std::get<std::shared_ptr<struct value>>(value_or_nclass);
+				assert(val != nullptr);
 				if (val->type == ljson::value_type::string)
 					out_func(std::format("\"{}\"", val->value));
 				else
@@ -1616,22 +1626,49 @@ namespace ljson {
 	{
 	}
 
+	bool parser::done_or_not_ok(const std::expected<bool, error>& ok)
+	{
+		if ((ok && ok.value()) || not ok)
+			return true;
+		else
+			return false;
+	}
+
+	void parser::throw_error_if_not_ok(const std::expected<bool, error>& ok)
+	{
+		if (not ok)
+			throw ok.error();
+	}
+
+	void parser::check_unhandled_hierarchy(const std::string& raw_json, struct parsing_data& data)
+	{
+		if (data.hierarchy.empty() || raw_json.empty())
+			return;
+
+		if (raw_json.back() == '}' && data.hierarchy.top().first == json_syntax::opening_bracket)
+		{
+			data.line = "}";
+			data.i	  = 0;
+			assert(data.i < data.line.size());
+			if (auto ok = parser_syntax::closing_bracket::handle_closing_bracket(data); done_or_not_ok(ok))
+			{
+				throw_error_if_not_ok(ok);
+			}
+		}
+		else
+		{
+			data.line = (not raw_json.empty()) ? std::string(raw_json.back(), 1) : "";
+			data.i	  = std::min(raw_json.size() - 1, ( size_t ) 0);
+			assert(data.i < data.line.size());
+			if (auto ok = parser_syntax::syntax_error::handle_syntax_error(data); done_or_not_ok(ok))
+			{
+				throw_error_if_not_ok(ok);
+			}
+		}
+	}
+
 	void parser::parsing(struct parsing_data& data)
 	{
-		auto done_or_not_ok = [](const std::expected<bool, error>& ok) -> bool
-		{
-			if ((ok && ok.value()) || not ok)
-				return true;
-			else
-				return false;
-		};
-
-		auto throw_error_if_not_ok = [](const std::expected<bool, error>& ok) -> void
-		{
-			if (not ok)
-				throw ok.error();
-		};
-
 		std::expected<bool, error> ok;
 
 		if (parser_syntax::end_statement::run_till_end_of_statement(data))
@@ -1685,13 +1722,15 @@ namespace ljson {
 
 	ljson::node parser::parse(const std::filesystem::path& path)
 	{
+		ljson::node json_data = ljson::node(value_type::object);
+
 		std::unique_ptr<std::ifstream> file = std::make_unique<std::ifstream>(path);
 		if (not file->is_open())
 			throw ljson::error(
 			    error_type::filesystem_error, std::format("couldn't open '{}', {}", path.string(), std::strerror(errno)));
 		struct parsing_data data;
 
-		data.json_objs.push(this->json_data);
+		data.json_objs.push(json_data);
 		data.keys.push({"", key_type::simple_key});
 
 		while (std::getline(*file, data.line))
@@ -1702,27 +1741,40 @@ namespace ljson {
 				this->parsing(data);
 			}
 
-			data.line.clear();
+			if (not file->eof())
+				data.line.clear();
 
 			data.line_number++;
 		}
 
-		return this->json_data;
+		this->check_unhandled_hierarchy(data.line, data);
+
+		return json_data;
+	}
+
+	ljson::node parser::parse(const char* raw_json)
+	{
+		assert(raw_json != NULL);
+		std::string string_json(raw_json);
+		return this->parse(string_json);
 	}
 
 	ljson::node parser::parse(const std::string& raw_json)
 	{
+		ljson::node json_data = ljson::node(value_type::object);
+
 		struct parsing_data data;
 
-		data.json_objs.push(this->json_data);
+		data.json_objs.push(json_data);
 		data.keys.push({"", key_type::simple_key});
 
 		for (size_t i = 0; i < raw_json.size(); i++)
 		{
 			data.line += raw_json[i];
 
-			if (not data.line.empty() && (data.line.back() == '\n' || data.i == raw_json.size() - 1 || data.line.back() == ','))
+			if (not data.line.empty() && (data.line.back() == '\n' || data.line.back() == ',' || data.line.back() == '}'))
 			{
+
 				for (data.i = 0; data.i < data.line.size(); data.i++)
 				{
 					this->parsing(data);
@@ -1733,7 +1785,9 @@ namespace ljson {
 			}
 		}
 
-		return this->json_data;
+		this->check_unhandled_hierarchy(raw_json, data);
+
+		return json_data;
 	}
 
 	parser::~parser()
