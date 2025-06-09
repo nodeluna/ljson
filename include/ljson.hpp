@@ -1229,6 +1229,12 @@ namespace ljson {
 				value.value = val;
 				insert_func(value);
 			}
+			else if (any_value.type() == typeid(ljson::null_type))
+			{
+				value.type  = value_type::null;
+				value.value = "null";
+				insert_func(value);
+			}
 			else
 			{
 				throw error(error_type::wrong_type,
