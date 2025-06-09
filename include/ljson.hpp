@@ -122,9 +122,78 @@ namespace ljson {
 		array,
 	};
 
+	class null_type {
+		public:
+			null_type() = default;
+
+			bool operator==(const null_type&) const
+			{
+				return true;
+			}
+
+			bool operator!=(const null_type&) const
+			{
+				return false;
+			}
+	};
+
+	inline null_type null;
+
 	struct value {
 			std::string value = "";
 			value_type  type  = value_type::none;
+
+			bool is_string()
+			{
+				return type == ljson::value_type::string;
+			}
+
+			bool is_number()
+			{
+				return type == ljson::value_type::number;
+			}
+
+			bool is_boolean()
+			{
+				return type == ljson::value_type::boolean;
+			}
+
+			bool is_null()
+			{
+				return type == ljson::value_type::null;
+			}
+
+			std::string as_string()
+			{
+				if (not this->is_string())
+					throw error(error_type::wrong_type, "wrong type: trying to cast a non-string to a string");
+
+				return value;
+			}
+
+			double as_number()
+			{
+				if (not this->is_number())
+					throw error(error_type::wrong_type, "wrong type: trying to cast a non-number to a number");
+
+				return std::stod(value);
+			}
+
+			bool as_boolean()
+			{
+				if (not this->is_boolean())
+					throw error(error_type::wrong_type, "wrong type: trying to cast a non-boolean to a boolean");
+
+				return value == "true" ? true : false;
+			}
+
+			null_type as_null()
+			{
+				if (not this->is_null())
+					throw error(error_type::wrong_type, "wrong type: trying to cast a non-null to a null");
+
+				return {};
+			}
 
 			std::string type_name() const
 			{
@@ -158,13 +227,6 @@ namespace ljson {
 	using json_object = std::map<std::string, class node>;
 	using json_array  = std::vector<class node>;
 	using json_node	  = std::variant<std::shared_ptr<struct value>, std::shared_ptr<ljson::array>, std::shared_ptr<ljson::object>>;
-
-	class null_value {
-		public:
-			null_value()
-			{
-			}
-	};
 
 	class node {
 		private:
@@ -204,16 +266,24 @@ namespace ljson {
 			bool			       contains(const std::string& key) const;
 			class node&		       at(const std::string& object_key) const;
 			class node&		       at(const size_t array_index) const;
-			class node&		       operator=(const std::shared_ptr<struct value>& val);
-			class node&		       operator=(const struct value& val);
-			class node&		       operator=(const std::shared_ptr<ljson::array>& arr);
-			class node&		       operator=(const std::shared_ptr<ljson::object>& obj);
 
+			template<typename number_type>
+			class node& operator=(const number_type& val);
+			class node& operator=(const std::shared_ptr<struct value>& val);
+			class node& operator=(const struct value& val);
+			class node& operator=(const std::shared_ptr<ljson::array>& arr);
+			class node& operator=(const std::shared_ptr<ljson::object>& obj);
+			class node& operator=(const std::string& val);
+			class node& operator=(const char* val);
+			class node& operator=(const bool val);
+			class node& operator=(const null_type val);
+
+			template<typename number_type>
+			std::expected<std::monostate, error> set(const number_type value);
 			std::expected<std::monostate, error> set(const struct value& value);
 			std::expected<std::monostate, error> set(const std::string& value);
-			std::expected<std::monostate, error> set(const double value);
 			std::expected<std::monostate, error> set(const bool value);
-			std::expected<std::monostate, error> set(const ljson::null_value value);
+			std::expected<std::monostate, error> set(const ljson::null_type value);
 			std::expected<std::monostate, error> set(const char* value);
 
 			void dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf = {' ', 4},
@@ -1467,6 +1537,51 @@ namespace ljson {
 		return *this;
 	}
 
+	class node& node::operator=(const std::string& val)
+	{
+		_node	 = std::make_shared<struct value>(val);
+		auto n	 = this->as_value();
+		n->value = val;
+		n->type	 = ljson::value_type::string;
+		return *this;
+	}
+
+	class node& node::operator=(const char* val)
+	{
+		assert(val != NULL);
+		*this = std::string(val);
+		return *this;
+	}
+
+	class node& node::operator=(const null_type _)
+	{
+		_node	 = std::make_shared<struct value>();
+		auto n	 = this->as_value();
+		n->value = "null";
+		n->type	 = ljson::value_type::null;
+		return *this;
+	}
+
+	template<typename number_type>
+	class node& node::operator=(const number_type& val)
+	{
+		static_assert(std::is_arithmetic<number_type>::value, "Template paramenter must be a numeric type");
+		_node	 = std::make_shared<struct value>();
+		auto n	 = this->as_value();
+		n->value = std::to_string(val);
+		n->type	 = ljson::value_type::number;
+		return *this;
+	}
+
+	class node& node::operator=(const bool val)
+	{
+		_node	 = std::make_shared<struct value>();
+		auto n	 = this->as_value();
+		n->value = std::format("{}", val);
+		n->type	 = ljson::value_type::boolean;
+		return *this;
+	}
+
 	std::expected<std::monostate, error> node::set(const struct value& value)
 	{
 		if (not this->is_value())
@@ -1491,11 +1606,13 @@ namespace ljson {
 		return std::monostate();
 	}
 
-	std::expected<std::monostate, error> node::set(const double value)
+	template<typename number_type>
+	std::expected<std::monostate, error> node::set(const number_type value)
 	{
+		static_assert(std::is_arithmetic<number_type>::value, "Template paramenter must be a numeric type");
 		struct value new_value;
 		new_value.type	= ljson::value_type::number;
-		new_value.value = value;
+		new_value.value = std::to_string(value);
 
 		this->set(new_value);
 
@@ -1520,7 +1637,7 @@ namespace ljson {
 		return std::monostate();
 	}
 
-	std::expected<std::monostate, error> node::set(const ljson::null_value)
+	std::expected<std::monostate, error> node::set(const ljson::null_type)
 	{
 		struct value new_value;
 		new_value.type	= ljson::value_type::null;
