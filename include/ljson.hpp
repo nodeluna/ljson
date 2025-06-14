@@ -228,7 +228,8 @@ namespace ljson {
 	concept is_allowed_value_type =
 	    std::is_same_v<allowed_value_types, std::string> || std::is_same_v<allowed_value_types, const char*> ||
 	    std::is_arithmetic<allowed_value_types>::value || std::is_same_v<allowed_value_types, null_type> ||
-	    std::is_same_v<allowed_value_types, bool> || std::is_same_v<allowed_value_types, ljson::node>;
+	    std::is_same_v<allowed_value_types, bool> || std::is_same_v<allowed_value_types, ljson::node> ||
+	    std::is_same_v<allowed_value_types, struct value>;
 
 	template<typename container_type>
 	concept is_key_value_container = requires(container_type container) {
@@ -286,18 +287,6 @@ namespace ljson {
 			template<typename value_type_concept>
 			std::expected<class ljson::node, error> push_back(const value_type_concept& node);
 
-			std::expected<class ljson::node, error> add_array_to_key(const std::string& key);
-			std::expected<class ljson::node, error> add_object_to_array();
-			std::expected<class ljson::node, error> add_node_to_array(const ljson::node& node);
-			std::expected<class ljson::node, error> add_node_to_array(const size_t index, const ljson::node& node);
-			std::expected<class ljson::node, error> add_object_to_key(const std::string& key);
-			std::expected<class ljson::node, error> add_value_to_key(const std::string& key, const struct value& value);
-			std::expected<class ljson::node, error> add_value_to_array(const struct value& value);
-			std::expected<class ljson::node, error> add_value_to_array(const std::string& value);
-			std::expected<class ljson::node, error> add_value_to_array(const size_t index, const struct value& value);
-			std::expected<class ljson::node, error> add_value_to_array(const size_t index, const std::string& value);
-			std::expected<class ljson::node, error> add_node_to_key(const std::string& key, const ljson::node& node);
-
 			std::shared_ptr<struct value>  as_value() const;
 			std::shared_ptr<ljson::array>  as_array() const;
 			std::shared_ptr<ljson::object> as_object() const;
@@ -338,6 +327,16 @@ namespace ljson {
 			std::string			     dump_to_string(const std::pair<char, int>& indent_conf = {' ', 4});
 			std::expected<std::monostate, error> write_to_file(
 			    const std::filesystem::path& path, const std::pair<char, int>& indent_conf = {' ', 4});
+
+			std::expected<class ljson::node, error> add_value_to_key(const std::string& key, const struct value& value);
+			std::expected<class ljson::node, error> add_node_to_key(const std::string& key, const ljson::node& node);
+			std::expected<class ljson::node, error> add_value_to_array(const struct value& value);
+			std::expected<class ljson::node, error> add_value_to_array(const size_t index, const struct value& value);
+			std::expected<class ljson::node, error> add_node_to_array(const ljson::node& node);
+			std::expected<class ljson::node, error> add_node_to_array(const size_t index, const ljson::node& node);
+			std::expected<class ljson::node, error> add_array_to_key(const std::string& key);
+			std::expected<class ljson::node, error> add_object_to_array();
+			std::expected<class ljson::node, error> add_object_to_key(const std::string& key);
 	};
 
 	class array {
@@ -1016,7 +1015,7 @@ namespace ljson {
 
 						if (data.keys.top().second == key_type::simple_key)
 						{
-							auto ok = data.json_objs.top().add_value_to_key(data.keys.top().first, data.value);
+							auto ok = data.json_objs.top().insert(data.keys.top().first, data.value);
 							if (not ok)
 							{
 								return std::unexpected(error(error_type::parsing_error,
@@ -1086,7 +1085,7 @@ namespace ljson {
 					{
 						if (data.keys.top().second == key_type::simple_key)
 						{
-							auto ok = data.json_objs.top().add_value_to_key(data.keys.top().first, data.value);
+							auto ok = data.json_objs.top().insert(data.keys.top().first, data.value);
 							if (not ok)
 							{
 								return std::unexpected(error(error_type::parsing_error,
@@ -1099,7 +1098,7 @@ namespace ljson {
 
 					static std::expected<std::monostate, error> fill_array_data(struct parsing_data& data)
 					{
-						auto ok = data.json_objs.top().add_value_to_array(data.value);
+						auto ok = data.json_objs.top().push_back(data.value);
 						if (not ok)
 						{
 							return std::unexpected(error(
@@ -1271,7 +1270,11 @@ namespace ljson {
 	template<typename is_allowed_value_type>
 	std::variant<struct value, ljson::node> node::handle_allowed_value_types(const is_allowed_value_type& value)
 	{
-		if constexpr (std::is_same<is_allowed_value_type, bool>::value)
+		if constexpr (std::is_same<is_allowed_value_type, struct value>::value)
+		{
+			return value;
+		}
+		else if constexpr (std::is_same<is_allowed_value_type, bool>::value)
 		{
 			return ljson::value{.value = value ? "true" : "false", .type = ljson::value_type::boolean};
 		}
@@ -1562,11 +1565,6 @@ namespace ljson {
 		return arr->back();
 	}
 
-	std::expected<class ljson::node, error> node::add_value_to_array(const std::string& value)
-	{
-		return this->add_value_to_array({.value = value, .type = value_type::string});
-	}
-
 	std::expected<class ljson::node, error> node::add_value_to_array(const size_t index, const struct value& value)
 	{
 		if (not this->is_array())
@@ -1580,11 +1578,6 @@ namespace ljson {
 		(*arr)[index] = ljson::node(value);
 
 		return (*arr)[index];
-	}
-
-	std::expected<class ljson::node, error> node::add_value_to_array(const size_t index, const std::string& value)
-	{
-		return this->add_value_to_array(index, {.value = value, .type = value_type::string});
 	}
 
 	std::shared_ptr<struct value> node::as_value() const

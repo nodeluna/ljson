@@ -28,7 +28,7 @@ check out the example at test/import_ljson/ to see how to use the library as a m
 #include <exception>
 
 int main() {
-	std::string path_to_file = "meow";
+	std::filesystem::path path_to_file = "meow";
 	ljson::parser parser;
 
 	try {
@@ -55,7 +55,7 @@ int main() {
 #include <exception>
 
 int main() {
-	std::string path_to_file = "meow";
+	std::filesystem::path path_to_file = "meow";
 	ljson::parser parser;
 
 	// making a json object
@@ -79,7 +79,7 @@ int main() {
 		ljson::node node = parser.parse();
 
 		// this function adds an object to a key
-		node.add_object_to_key("new_object", j2);
+		node.insert("new_object", j2);
 
 		ljson::node new_node = node.at("object_key").at("nested_key"); // getting the value of nested_key
 												 // this function can throw if the key doesn't exist
@@ -93,15 +93,15 @@ int main() {
 				// to change the value, it can be done this way
 				new_node.set("new_value_for_nested_key");
 				// or this way
-				new_node = ljson::value{.value = "new_value_for_nested_key", .type = ljson::value_type::string};
+				new_node = "new_value_for_nested_key";
 			}
 		}
 
 		// this function adds an object to an array
-		node.at("object").at("array_key").add_object_to_array("object_inside_array", j2);
+		node.at("object").at("array_key").push_back(j2);
 
 		// this function adds a value to an array
-		node.at("object").at("array_key").add_value_to_array("new_array_value");
+		node.at("object").at("array_key").push_back("new_array_value");
 
 		// to access an index inside an array pass a size_t to the .at(index) function
 		new_node = node.at("object").at("array_key").at(0); 
@@ -132,7 +132,7 @@ int main() {
 #include <exception>
 
 int main() {
-	std::string path_to_file = "meow";
+	std::filesystem::path path_to_file = "meow";
 	ljson::parser parser;
 
 	try {
@@ -166,7 +166,7 @@ int main() {
 #include <exception>
 
 int main() {
-	std::string path_to_file = "meow";
+	std::filesystem::path path_to_file = "meow";
 	ljson::parser parser;
 
 	try {
@@ -193,6 +193,44 @@ int main() {
 }
 
 ```
+
+### inserting std library containers into a node
+```cpp
+#include <ljson.hpp>
+#include <exception>
+
+int main() {
+	std::filesystem::path path_to_file = "meow";
+	ljson::parser parser;
+
+	try {
+		// parse the file
+
+		std::map<std::string, std::string> object = {
+				{"meow_key", "value1"},
+				{"meow_key2", "value2"},
+		};
+		std::list<std::string> array = {"meow", "meoow"};
+
+
+		if (node.is_object)
+		{
+			node.insert("array", array); // inserts an array to the value name "array"
+			node.insert("object", object); // inserts an object to the value name "object"
+		}
+		else if (node.is_array())
+		{
+			node.push_back(array); // pushes back an array at the end of the array
+			node.push_back(object); // pushes back an object at the end of the array
+		}
+
+	} catch (const ljson::error& error) {
+		// parsing error, JSON syntax error
+		// handle error
+	}
+  
+}
+
 
 
 # author
