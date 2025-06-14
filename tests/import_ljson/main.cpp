@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 	{
 		ljson::node node = parser.parse(file);
 		node.add_node_to_key("key", j2);
-		auto ok		   = node.at("key").set(ljson::null_value());
+		auto ok		   = node.at("key").set(ljson::null);
 		ok		   = node.at("key").set("string value");
 		if (not ok)
 			std::println("err: {}", ok.error().message());

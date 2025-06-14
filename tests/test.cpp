@@ -1,3 +1,4 @@
+#include <initializer_list>
 #include <iostream>
 #include <string>
 #include <array>
@@ -145,4 +146,254 @@ TEST_F(ljson_test, array_iteration)
 	{
 		std::println("{}", error.what());
 	}
+}
+
+TEST_F(ljson_test, construct_from_initializer_list)
+{
+	std::set<int> num = {1, 2, 3};
+
+	ljson::node node = {
+	    {"key1",		      5},
+	    {"key2",		     "value"},
+	    {"key3",		     false},
+	    {"key4",	     ljson::null},
+	    {"key5", ljson::node({1, 2, 3})},
+	};
+
+	EXPECT_TRUE(node.is_object());
+
+	EXPECT_TRUE(node.at("key1").is_value());
+	EXPECT_TRUE(node.at("key1").as_value()->is_number());
+	EXPECT_EQ(node.at("key1").as_value()->as_number(), 5);
+
+	EXPECT_TRUE(node.at("key2").is_value());
+	EXPECT_TRUE(node.at("key2").as_value()->is_string());
+	EXPECT_EQ(node.at("key2").as_value()->as_string(), "value");
+
+	EXPECT_TRUE(node.at("key3").is_value());
+	EXPECT_TRUE(node.at("key3").as_value()->is_boolean());
+	EXPECT_EQ(node.at("key3").as_value()->as_boolean(), false);
+
+	EXPECT_TRUE(node.at("key4").is_value());
+	EXPECT_TRUE(node.at("key4").as_value()->is_null());
+	EXPECT_EQ(node.at("key4").as_value()->as_null(), ljson::null);
+
+	EXPECT_TRUE(node.at("key5").is_array());
+
+	for (const auto& value : *node.at("key5").as_array())
+	{
+		EXPECT_TRUE(value.is_value());
+		EXPECT_TRUE(value.as_value()->is_number());
+
+		auto itr = num.find(value.as_value()->as_number());
+		EXPECT_NE(itr, num.end());
+	}
+}
+
+TEST_F(ljson_test, construct_from_initializer_list_from_array)
+{
+	std::map<std::string, ljson::value_type> val = {
+	    {"1.322300",	 ljson::value_type::number},
+	    {	     "2",  ljson::value_type::number},
+	    {  "string",  ljson::value_type::string},
+	    {    "true", ljson::value_type::boolean},
+	    {    "null",    ljson::value_type::null},
+	};
+
+	ljson::node node = {
+	    1.3223,
+	    2,
+	    "string",
+	    true,
+	    ljson::null,
+	};
+
+	EXPECT_TRUE(node.is_array());
+
+	EXPECT_EQ(node.as_array()->size(), val.size());
+
+	EXPECT_TRUE(node.as_array()->at(0).is_value());
+	EXPECT_TRUE(node.as_array()->at(0).as_value()->is_number());
+	EXPECT_EQ(node.as_array()->at(0).as_value()->as_number(), 1.3223);
+
+	EXPECT_TRUE(node.as_array()->at(1).is_value());
+	EXPECT_TRUE(node.as_array()->at(1).as_value()->is_number());
+	EXPECT_EQ(node.as_array()->at(1).as_value()->as_number(), 2);
+
+	EXPECT_TRUE(node.as_array()->at(2).is_value());
+	EXPECT_TRUE(node.as_array()->at(2).as_value()->is_string());
+	EXPECT_EQ(node.as_array()->at(2).as_value()->as_string(), "string");
+
+	EXPECT_TRUE(node.as_array()->at(3).is_value());
+	EXPECT_TRUE(node.as_array()->at(3).as_value()->is_boolean());
+	EXPECT_EQ(node.as_array()->at(3).as_value()->as_boolean(), true);
+
+	EXPECT_TRUE(node.as_array()->at(4).is_value());
+	EXPECT_TRUE(node.as_array()->at(4).as_value()->is_null());
+	EXPECT_EQ(node.as_array()->at(4).as_value()->as_null(), ljson::null);
+
+	for (const auto& value : *node.as_array())
+	{
+		EXPECT_TRUE(value.is_value());
+
+		auto itr = val.find(value.as_value()->value);
+		EXPECT_NE(itr, val.end());
+
+		EXPECT_EQ(itr->second, value.as_value()->type);
+	}
+}
+
+TEST_F(ljson_test, default_node_type)
+{
+	ljson::node node;
+	EXPECT_TRUE(node.is_object());
+	EXPECT_TRUE(not node.is_array());
+	EXPECT_TRUE(not node.is_value());
+
+	EXPECT_NO_THROW(node.as_object());
+	EXPECT_THROW(node.as_array(), ljson::error);
+	EXPECT_THROW(node.as_value(), ljson::error);
+
+	ljson::node node2(ljson::value_type::array);
+	EXPECT_NO_THROW(node2.as_array());
+
+	ljson::node node3(ljson::value_type::number);
+	EXPECT_NO_THROW(node3.as_value());
+
+	ljson::node node4(ljson::value_type::string);
+	EXPECT_NO_THROW(node4.as_value());
+
+	ljson::node node5(ljson::value_type::boolean);
+	EXPECT_NO_THROW(node5.as_value());
+
+	ljson::node node6(ljson::value_type::null);
+	EXPECT_NO_THROW(node6.as_value());
+}
+
+TEST_F(ljson_test, invalid_json)
+{
+	ljson::parser parser;
+	EXPECT_THROW(parser.parse("{invalid}"), ljson::error);
+	EXPECT_THROW(parser.parse("{{}"), ljson::error);
+	EXPECT_THROW(parser.parse("{\"name\":}"), ljson::error);
+}
+
+TEST_F(ljson_test, node_add_object)
+{
+	ljson::node node = {
+	    {"key1", "value1"},
+	    {"key2", "value2"},
+	};
+
+	node += ljson::object_pairs{
+	    {"key3",			      "value3"},
+		{"key4",				 "value4"},
+	    { "arr", ljson::node({"arr1", "arr2", "arr3"})}
+	  };
+
+	EXPECT_TRUE(node.contains("key1"));
+	EXPECT_TRUE(node.at("key1").is_value());
+	EXPECT_TRUE(node.at("key1").as_value()->is_string());
+	EXPECT_EQ(node.at("key1").as_value()->as_string(), "value1");
+
+	EXPECT_TRUE(node.contains("key2"));
+	EXPECT_TRUE(node.at("key2").is_value());
+	EXPECT_TRUE(node.at("key2").as_value()->is_string());
+	EXPECT_EQ(node.at("key2").as_value()->as_string(), "value2");
+
+	EXPECT_TRUE(node.contains("key3"));
+	EXPECT_TRUE(node.at("key3").is_value());
+	EXPECT_TRUE(node.at("key3").as_value()->is_string());
+	EXPECT_EQ(node.at("key3").as_value()->as_string(), "value3");
+
+	EXPECT_TRUE(node.contains("key4"));
+	EXPECT_TRUE(node.at("key4").is_value());
+	EXPECT_TRUE(node.at("key4").as_value()->is_string());
+	EXPECT_EQ(node.at("key4").as_value()->as_string(), "value4");
+
+	EXPECT_TRUE(node.contains("arr"));
+	EXPECT_TRUE(node.at("arr").is_array());
+}
+
+TEST_F(ljson_test, node_add_array)
+{
+	ljson::node node(ljson::value_type::array);
+	node += ljson::array_values{"value1", "value2", ljson::node({"arr1", "arr2", "arr3"})};
+
+	EXPECT_TRUE(node.is_array());
+
+	EXPECT_EQ(node.at(0).as_value()->as_string(), "value1");
+	EXPECT_EQ(node.at(1).as_value()->as_string(), "value2");
+	EXPECT_TRUE(node.at(2).is_array());
+}
+
+TEST_F(ljson_test, node_plus_node_objects)
+{
+	ljson::node object_node1 = {
+	    {"key1", "value1"},
+	    {"key2", "value2"},
+	};
+
+	ljson::node object_node2 = {
+	    {"key3", "value3"},
+	    {"key4", "value4"},
+	};
+
+	ljson::node new_node = object_node1 + object_node2;
+
+	EXPECT_TRUE(new_node.is_object());
+
+	EXPECT_TRUE(new_node.contains("key1"));
+	EXPECT_TRUE(new_node.contains("key2"));
+	EXPECT_TRUE(new_node.contains("key3"));
+	EXPECT_TRUE(new_node.contains("key4"));
+
+	EXPECT_TRUE(new_node.at("key1").is_value());
+	EXPECT_TRUE(new_node.at("key2").is_value());
+	EXPECT_TRUE(new_node.at("key3").is_value());
+	EXPECT_TRUE(new_node.at("key4").is_value());
+
+	EXPECT_TRUE(new_node.at("key1").as_value()->is_string());
+	EXPECT_TRUE(new_node.at("key2").as_value()->is_string());
+	EXPECT_TRUE(new_node.at("key3").as_value()->is_string());
+	EXPECT_TRUE(new_node.at("key4").as_value()->is_string());
+
+	EXPECT_EQ(new_node.at("key1").as_value()->as_string(), "value1");
+	EXPECT_EQ(new_node.at("key2").as_value()->as_string(), "value2");
+	EXPECT_EQ(new_node.at("key3").as_value()->as_string(), "value3");
+	EXPECT_EQ(new_node.at("key4").as_value()->as_string(), "value4");
+
+	ljson::node array_node = {
+	    1.3223,
+	    2,
+	    "string",
+	    true,
+	    ljson::null,
+	};
+
+	EXPECT_THROW(array_node + object_node2, ljson::error);
+}
+
+TEST_F(ljson_test, node_plus_node_arrays)
+{
+	ljson::node array_node1 = {
+	    1.3223,
+	    2,
+	    "string",
+	    true,
+	    ljson::null,
+	};
+
+	ljson::node array_node2 = {
+	    4,
+	    5,
+	    "string2",
+	    false,
+	    ljson::null,
+	};
+
+	ljson::node new_node = array_node1 + array_node2;
+
+	EXPECT_TRUE(new_node.is_array());
+	EXPECT_EQ(new_node.as_array()->size(), array_node1.as_array()->size() + array_node2.as_array()->size());
 }

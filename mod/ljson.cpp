@@ -16,4 +16,6 @@ export namespace ljson {
 	using ljson::parser;
 	using ljson::value;
 	using ljson::value_type;
+	using ljson::object_pairs;
+	using ljson::array_values;
 }

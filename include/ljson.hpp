@@ -224,6 +224,9 @@ namespace ljson {
 	class object;
 	class node;
 
+	using object_pairs = std::initializer_list<std::pair<std::string, std::any>>;
+	using array_values = std::initializer_list<std::any>;
+
 	using json_object = std::map<std::string, class node>;
 	using json_array  = std::vector<class node>;
 	using json_node	  = std::variant<std::shared_ptr<struct value>, std::shared_ptr<ljson::array>, std::shared_ptr<ljson::object>>;
@@ -277,6 +280,10 @@ namespace ljson {
 			class node& operator=(const char* val);
 			class node& operator=(const bool val);
 			class node& operator=(const null_type val);
+
+			class node& operator+=(const std::initializer_list<std::pair<std::string, std::any>>& pairs);
+			class node& operator+=(const std::initializer_list<std::any>& val);
+			class node  operator+(const node& other_node);
 
 			template<typename number_type>
 			std::expected<std::monostate, error> set(const number_type value);
@@ -1586,6 +1593,120 @@ namespace ljson {
 		n->value = std::format("{}", val);
 		n->type	 = ljson::value_type::boolean;
 		return *this;
+	}
+
+	class node& node::operator+=(const std::initializer_list<std::pair<std::string, std::any>>& pairs)
+	{
+		if (not this->is_object())
+			throw error(error_type::wrong_type, "wrong type: trying to insert pairs to a non-object");
+
+		std::string key;
+		auto	    map = this->as_object();
+
+		auto insert_func = [&](const std::any& value)
+		{
+			if (value.type() == typeid(ljson::node))
+			{
+				auto val = std::any_cast<ljson::node>(value);
+				map->insert(key, val);
+			}
+			else
+			{
+				auto val = std::any_cast<struct value>(value);
+				map->insert(key, ljson::node(val));
+			}
+		};
+
+		for (const auto& pair : pairs)
+		{
+			key = pair.first;
+			this->handle_std_any(pair.second, insert_func);
+			key.clear();
+		}
+		return *this;
+	}
+
+	class node& node::operator+=(const std::initializer_list<std::any>& val)
+	{
+		if (not this->is_array())
+			throw error(error_type::wrong_type, "wrong type: trying to insert pairs to a non-array");
+
+		auto vector = this->as_array();
+
+		auto insert_func = [&](const std::any& value)
+		{
+			if (value.type() == typeid(ljson::node))
+			{
+				auto val = std::any_cast<ljson::node>(value);
+				vector->push_back(val);
+			}
+			else
+			{
+				auto val = std::any_cast<struct value>(value);
+				vector->push_back(ljson::node(val));
+			}
+		};
+
+		for (const auto& value : val)
+		{
+			this->handle_std_any(value, insert_func);
+		}
+		return *this;
+	}
+
+	class node node::operator+(const node& other_node)
+	{
+		if (this->type() != other_node.type())
+			throw error(error_type::wrong_type, "trying to + two nodes with different types");
+
+		if (this->is_object())
+		{
+			ljson::node new_node(ljson::value_type::object);
+			for (const auto& [key, node] : *this->as_object())
+			{
+				new_node.add_node_to_key(key, node);
+			}
+			for (const auto& [key, node] : *other_node.as_object())
+			{
+				new_node.add_node_to_key(key, node);
+			}
+
+			return new_node;
+		}
+		else if (this->is_array())
+		{
+			ljson::node new_node(ljson::value_type::array);
+			for (const auto& node : *this->as_array())
+			{
+				new_node.add_node_to_array(node);
+			}
+			for (const auto& node : *other_node.as_array())
+			{
+				new_node.add_node_to_array(node);
+			}
+
+			return new_node;
+		}
+		else
+		{
+			ljson::node new_node(this->type());
+
+			if (this->type() == value_type::string)
+			{
+				new_node = this->as_value()->as_string() + other_node.as_value()->as_string();
+			}
+			else if (this->type() == value_type::number)
+			{
+				new_node = this->as_value()->as_number() + other_node.as_value()->as_number();
+			}
+			else
+			{
+				throw error(
+				    error_type::wrong_type, "trying to + two nodes with values that are neither a number nor string");
+			}
+
+			return new_node;
+		}
 	}
 
 	std::expected<std::monostate, error> node::set(const struct value& value)
