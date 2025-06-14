@@ -224,6 +224,33 @@ namespace ljson {
 	class object;
 	class node;
 
+	template<typename allowed_value_types>
+	concept is_allowed_value_type =
+	    std::is_same_v<allowed_value_types, std::string> || std::is_same_v<allowed_value_types, const char*> ||
+	    std::is_arithmetic<allowed_value_types>::value || std::is_same_v<allowed_value_types, null_type> ||
+	    std::is_same_v<allowed_value_types, bool> || std::is_same_v<allowed_value_types, ljson::node>;
+
+	template<typename container_type>
+	concept is_key_value_container = requires(container_type container) {
+		typename container_type::key_type;
+		typename container_type::mapped_type;
+		{ container.begin() } -> std::same_as<typename container_type::iterator>;
+		{ container.end() } -> std::same_as<typename container_type::iterator>;
+	} && std::is_same_v<typename container_type::key_type, std::string> && is_allowed_value_type<typename container_type::mapped_type>;
+
+	template<typename container_type>
+	concept is_value_container = requires(container_type container) {
+		typename container_type::value_type;
+		{ container.begin() } -> std::same_as<typename container_type::iterator>;
+		{ container.end() } -> std::same_as<typename container_type::iterator>;
+	} && not is_key_value_container<container_type> && is_allowed_value_type<typename container_type::value_type>;
+
+	template<typename container_type>
+	concept container_type_concept = is_key_value_container<container_type> || is_value_container<container_type>;
+
+	template<typename value_type>
+	concept value_type_concept = container_type_concept<value_type> || is_allowed_value_type<value_type>;
+
 	using object_pairs = std::initializer_list<std::pair<std::string, std::any>>;
 	using array_values = std::initializer_list<std::any>;
 
@@ -238,13 +265,26 @@ namespace ljson {
 		protected:
 			void handle_std_any(const std::any& any_value, std::function<void(std::any)> insert_func);
 
+			template<typename is_allowed_value_type>
+			std::variant<struct value, ljson::node> handle_allowed_value_types(const is_allowed_value_type& value);
+
 		public:
 			explicit node();
 			explicit node(const json_node& n);
 			explicit node(enum value_type type);
 			explicit node(const struct value& value);
+
+			template<typename container_type_concept>
+			explicit node(const container_type_concept& container);
+
 			node(const std::initializer_list<std::pair<std::string, std::any>>& pairs);
 			node(const std::initializer_list<std::any>& val);
+
+			template<typename value_type_concept>
+			std::expected<class ljson::node, error> insert(const std::string& key, const value_type_concept& node);
+
+			template<typename value_type_concept>
+			std::expected<class ljson::node, error> push_back(const value_type_concept& node);
 
 			std::expected<class ljson::node, error> add_array_to_key(const std::string& key);
 			std::expected<class ljson::node, error> add_object_to_array();
@@ -252,7 +292,6 @@ namespace ljson {
 			std::expected<class ljson::node, error> add_node_to_array(const size_t index, const ljson::node& node);
 			std::expected<class ljson::node, error> add_object_to_key(const std::string& key);
 			std::expected<class ljson::node, error> add_value_to_key(const std::string& key, const struct value& value);
-			std::expected<class ljson::node, error> add_value_to_key(const std::string& key, const std::string& value);
 			std::expected<class ljson::node, error> add_value_to_array(const struct value& value);
 			std::expected<class ljson::node, error> add_value_to_array(const std::string& value);
 			std::expected<class ljson::node, error> add_value_to_array(const size_t index, const struct value& value);
@@ -1184,6 +1223,84 @@ namespace ljson {
 			_node = std::make_shared<struct value>();
 	}
 
+	template<typename container_type_concept>
+	node::node(const container_type_concept& container)
+	{
+		if constexpr (is_value_container<container_type_concept>)
+		{
+			_node = std::make_shared<ljson::array>();
+
+			for (auto& val : container)
+			{
+				std::variant<struct value, ljson::node> v = this->handle_allowed_value_types(val);
+
+				if (std::holds_alternative<struct value>(v))
+				{
+					this->push_back(node(std::get<struct value>(v)));
+				}
+				else
+				{
+					this->push_back(std::get<ljson::node>(v));
+				}
+			}
+		}
+		else if constexpr (is_key_value_container<container_type_concept>)
+		{
+			_node = std::make_shared<ljson::object>();
+
+			for (auto& [key, val] : container)
+			{
+				std::variant<struct value, ljson::node> v = this->handle_allowed_value_types(val);
+
+				if (std::holds_alternative<struct value>(v))
+				{
+					this->insert(key, node(std::get<struct value>(v)));
+				}
+				else
+				{
+					this->insert(key, std::get<ljson::node>(v));
+				}
+			}
+		}
+		else
+		{
+			static_assert(false && "unsupported type is in the ljson::node constructor");
+		}
+	}
+
+	template<typename is_allowed_value_type>
+	std::variant<struct value, ljson::node> node::handle_allowed_value_types(const is_allowed_value_type& value)
+	{
+		if constexpr (std::is_same<is_allowed_value_type, bool>::value)
+		{
+			return ljson::value{.value = value ? "true" : "false", .type = ljson::value_type::boolean};
+		}
+		else if constexpr (std::is_arithmetic<is_allowed_value_type>::value)
+		{
+			return ljson::value{.value = std::to_string(value), .type = ljson::value_type::number};
+		}
+		else if constexpr (std::is_same<is_allowed_value_type, std::string>::value)
+		{
+			return ljson::value{.value = value, .type = ljson::value_type::string};
+		}
+		else if constexpr (std::is_same<is_allowed_value_type, const char*>::value)
+		{
+			return ljson::value{.value = value, .type = ljson::value_type::string};
+		}
+		else if constexpr (std::is_same<is_allowed_value_type, null_type>::value)
+		{
+			return ljson::value{.value = "null", .type = ljson::value_type::null};
+		}
+		else if constexpr (std::is_same<is_allowed_value_type, ljson::node>::value)
+		{
+			return value;
+		}
+		else
+		{
+			static_assert(false && "unsupported value_type in function node::handle_allowed_value_types(...)");
+		}
+	}
+
 	void node::handle_std_any(const std::any& any_value, std::function<void(std::any)> insert_func)
 	{
 		if (any_value.type() == typeid(ljson::node))
@@ -1364,6 +1481,68 @@ namespace ljson {
 		return obj->insert(key, node);
 	}
 
+	template<typename value_type_concept>
+	std::expected<class ljson::node, error> node::insert(const std::string& key, const value_type_concept& value)
+	{
+		if constexpr (is_allowed_value_type<value_type_concept>)
+		{
+			std::variant<struct value, ljson::node> v = this->handle_allowed_value_types(value);
+
+			if (std::holds_alternative<struct value>(v))
+			{
+				return this->add_value_to_key(key, std::get<struct value>(v));
+			}
+			else if (std::holds_alternative<ljson::node>(v))
+			{
+				return this->add_node_to_key(key, std::get<ljson::node>(v));
+			}
+			else
+			{
+				return std::unexpected(error(error_type::wrong_type, "wrong type: trying to insert to an object node"));
+			}
+		}
+		else if constexpr (container_type_concept<value_type_concept>)
+		{
+			ljson::node n(value);
+			return this->add_node_to_key(key, n);
+		}
+		else
+		{
+			static_assert(false && "unsupported type is inserted into an object node");
+		}
+	}
+
+	template<typename value_type_concept>
+	std::expected<class ljson::node, error> node::push_back(const value_type_concept& value)
+	{
+		if constexpr (is_allowed_value_type<value_type_concept>)
+		{
+			std::variant<struct value, ljson::node> v = this->handle_allowed_value_types(value);
+
+			if (std::holds_alternative<struct value>(v))
+			{
+				return this->add_value_to_array(std::get<struct value>(v));
+			}
+			else if (std::holds_alternative<ljson::node>(v))
+			{
+				return this->add_node_to_array(std::get<ljson::node>(v));
+			}
+			else
+			{
+				return std::unexpected(error(error_type::wrong_type, "wrong type: trying to push_back to an array node"));
+			}
+		}
+		else if constexpr (container_type_concept<value_type_concept>)
+		{
+			ljson::node n(value);
+			return this->add_node_to_array(n);
+		}
+		else
+		{
+			static_assert(false && "unsupported type is pushed_back into an object node");
+		}
+	}
+
 	std::expected<class ljson::node, error> node::add_value_to_key(const std::string& key, const struct value& value)
 	{
 		if (not this->is_object())
@@ -1371,11 +1550,6 @@ namespace ljson {
 
 		auto obj = this->as_object();
 		return obj->insert(key, ljson::node(value));
-	}
-
-	std::expected<class ljson::node, error> node::add_value_to_key(const std::string& key, const std::string& value)
-	{
-		return this->add_value_to_key(key, {.value = value, .type = value_type::string});
 	}
 
 	std::expected<class ljson::node, error> node::add_value_to_array(const struct value& value)
