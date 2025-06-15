@@ -4,7 +4,6 @@
 #include <array>
 #include <ljson.hpp>
 #include <gtest/gtest.h>
-#include <unistd.h>
 
 template<typename... args_t>
 void println(std::format_string<args_t...> fmt, args_t&&... args) {
@@ -520,4 +519,11 @@ TEST_F(ljson_test, push_back_into_array)
 	EXPECT_TRUE(node.at(3).at("key2").is_value());
 	EXPECT_TRUE(node.at(3).at("key2").as_value()->is_number());
 	EXPECT_EQ(node.at(3).as_object()->at("key2").as_value()->as_number(), 2);
+}
+
+int main(int argc, char** argv)
+{
+	::testing::InitGoogleTest(&argc, argv);
+	println("[=] running unit tests");
+	return RUN_ALL_TESTS();
 }

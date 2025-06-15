@@ -7,7 +7,13 @@ name: Manual workflow
 on:
   workflow_dispatch:
   pull_request:
+    paths:
+      - '**/*.cpp'
+      - '**/*.hpp'
   push:
+    paths:
+      - '**/*.cpp'
+      - '**/*.hpp'
 
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
@@ -37,7 +43,7 @@ jobs:
               echo "CXX=clang++" >> $GITHUB_ENV
             fi
       - name: build test
-        run: $CXX -std=c++20 tests/test.cpp -lgtest -lgtest_main -lpthread -Iinclude -o test
+        run: $CXX -std=c++20 tests/test.cpp -lgtest -lpthread -Iinclude -o test
 
       - name: run test
-        run: ./test
+        run: ./test --gtest_color=yes

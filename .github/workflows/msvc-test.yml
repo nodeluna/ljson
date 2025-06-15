@@ -14,20 +14,21 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      
       - name: install vcpkg and dependencies
         uses: lukka/run-vcpkg@v11
         with:
           runVcpkgFormatString: |
-            ["install", "gtest"]
+            ["install"]
           vcpkgGitCommitId: ef7dbf94b9198bc58f45951adcf1f041fcbc5ea0
+          runVcpkgInstall: true      
+
 
       - name: set up MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: build test
         run: |
-          cl /std:c++20 /Iinclude /I"${VCPKG_ROOT}\installed\x64-windows\include" /Fe:test.exe tests\test.cpp /link /LIBPATH:"${VCPKG_ROOT}\installed\x64-windows\lib" gtest.lib gtest_main.lib
+          cl /std:c++20 /EHsc /Iinclude /I"D:/a/ljson/ljson/vcpkg/packages/gtest_x64-windows/include" /Fe:test.exe tests\test.cpp /link /LIBPATH:"D:/a/ljson/ljson/vcpkg/packages/gtest_x64-windows/lib" gtest.lib
 
       - name: run test
-        run: .\test.exe
+        run: .\test.exe --gtest_color=yes *>&1
