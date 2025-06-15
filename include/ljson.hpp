@@ -75,13 +75,30 @@ namespace ljson {
 					}
 					else
 					{
-						static_assert(false && "no available conversion between the provided value types");
+						static_assert(
+						    not std::is_same_v<U, T> && "no available conversion between the provided value types");
 					}
 				}
 				else
 				{
 					_value_or_error = other.error();
 				}
+			}
+
+			expected(const expected&& other) noexcept
+			    : _has_value(other._has_value), _value_or_error(std::move(other._value_or_error))
+			{
+			}
+
+			expected& operator=(const expected&& other) noexcept
+			{
+				if (this != &other)
+				{
+					this->_has_value      = other._has_value;
+					this->_value_or_error = std::move(other._value_or_error);
+				}
+
+				return *this;
 			}
 
 			~expected()
@@ -1910,7 +1927,7 @@ namespace ljson {
 		return *this;
 	}
 
-	class node& node::operator=(const null_type _)
+	class node& node::operator=(const null_type)
 	{
 		_node	 = std::make_shared<struct value>();
 		auto n	 = this->as_value();

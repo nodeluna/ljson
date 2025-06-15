@@ -2,10 +2,19 @@
 #include <iostream>
 #include <string>
 #include <array>
-#include <print>
 #include <ljson.hpp>
 #include <gtest/gtest.h>
 #include <unistd.h>
+
+template<typename... args_t>
+void println(std::format_string<args_t...> fmt, args_t&&... args) {
+        std::string output = std::format(fmt, std::forward<args_t>(args)...);
+        std::cout << output << "\n";
+}
+
+void println() {
+        std::cout << "\n";
+}
 
 class ljson_test : public ::testing::Test {
 	protected:
@@ -60,7 +69,7 @@ TEST_F(ljson_test, parsing_simple_json)
 	}
 	catch (ljson::error& error)
 	{
-		std::println("{}", error.what());
+		println("{}", error.what());
 	}
 }
 
@@ -93,7 +102,7 @@ TEST_F(ljson_test, object_iteration)
 	}
 	catch (ljson::error& error)
 	{
-		std::println("{}", error.what());
+		println("{}", error.what());
 	}
 }
 
@@ -144,7 +153,7 @@ TEST_F(ljson_test, array_iteration)
 	}
 	catch (ljson::error& error)
 	{
-		std::println("{}", error.what());
+		println("{}", error.what());
 	}
 }
 

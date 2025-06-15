@@ -2,7 +2,7 @@ ljson is an easy to use header only json library for c++
 
 # requirements
 - compiler that supports c++20
-- gcc 13 or clang 18
+- gcc 13 or clang 17
 
 # usage
 
@@ -32,7 +32,7 @@ int main() {
 	ljson::parser parser;
 
 	try {
-		ljson::node node = parser.parse();
+		ljson::node node = parser.parse(path_to_file);
 		std::pair<char, int> indent_config = {'\t', 2}; // you can specifiy tab/space here and it's count
 		node.dump_to_stdout(indent_config);
 		node.dump_to_stdout(); // not specifiying defaults to {' ', 4}
