@@ -96,8 +96,8 @@ TEST_F(ljson_test, object_iteration)
 			EXPECT_NE(itr, obj.end());
 
 			EXPECT_TRUE(value.is_value());
-			EXPECT_EQ(itr->second.first, value.as_value()->value);
-			EXPECT_EQ(itr->second.second, value.as_value()->type);
+			EXPECT_EQ(itr->second.first, value.as_value()->get_value());
+			EXPECT_EQ(itr->second.second, value.as_value()->get_type());
 		}
 	}
 	catch (ljson::error& error)
@@ -145,10 +145,10 @@ TEST_F(ljson_test, array_iteration)
 		{
 			EXPECT_TRUE(value.is_value());
 
-			auto itr = arr.find(value.as_value()->value);
+			auto itr = arr.find(value.as_value()->get_value());
 			EXPECT_NE(itr, arr.end());
 
-			EXPECT_EQ(value.as_value()->type, itr->second);
+			EXPECT_EQ(value.as_value()->get_type(), itr->second);
 		}
 	}
 	catch (ljson::error& error)
@@ -245,10 +245,10 @@ TEST_F(ljson_test, construct_from_initializer_list_from_array)
 	{
 		EXPECT_TRUE(value.is_value());
 
-		auto itr = val.find(value.as_value()->value);
+		auto itr = val.find(value.as_value()->get_value());
 		EXPECT_NE(itr, val.end());
 
-		EXPECT_EQ(itr->second, value.as_value()->type);
+		EXPECT_EQ(itr->second, value.as_value()->get_type());
 	}
 }
 

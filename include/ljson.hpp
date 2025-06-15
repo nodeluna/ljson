@@ -334,8 +334,44 @@ namespace ljson {
 	inline null_type null;
 
 	struct value {
-			std::string value = "";
-			value_type  type  = value_type::none;
+		private:
+			std::string _value = "";
+			value_type  type   = value_type::none;
+
+		public:
+			value(const std::string& val, value_type t) : _value(val), type(t)
+			{
+			}
+
+			value()
+			{
+			}
+
+			value& operator+=(char c)
+			{
+				_value += c;
+				return *this;
+			}
+
+			std::string get_value() const
+			{
+				return _value;
+			}
+
+			ljson::value_type get_type() const
+			{
+				return type;
+			}
+
+			void set_value(const std::string& val)
+			{
+				_value = val;
+			}
+
+			void set_type(const ljson::value_type t)
+			{
+				type = t;
+			}
 
 			bool is_string()
 			{
@@ -362,7 +398,7 @@ namespace ljson {
 				if (not this->is_string())
 					throw error(error_type::wrong_type, "wrong type: trying to cast a non-string to a string");
 
-				return value;
+				return _value;
 			}
 
 			double as_number()
@@ -370,7 +406,7 @@ namespace ljson {
 				if (not this->is_number())
 					throw error(error_type::wrong_type, "wrong type: trying to cast a non-number to a number");
 
-				return std::stod(value);
+				return std::stod(_value);
 			}
 
 			bool as_boolean()
@@ -378,7 +414,7 @@ namespace ljson {
 				if (not this->is_boolean())
 					throw error(error_type::wrong_type, "wrong type: trying to cast a non-boolean to a boolean");
 
-				return value == "true" ? true : false;
+				return _value == "true" ? true : false;
 			}
 
 			null_type as_null()
@@ -705,16 +741,17 @@ namespace ljson {
 							return false;
 						else if (data.hierarchy.top().first == json_syntax::string_value)
 							return false;
-						else if (data.value.type != ljson::value_type::none &&
-							 data.value.type != ljson::value_type::unknown)
+						else if (data.value.get_type() != ljson::value_type::none &&
+							 data.value.get_type() != ljson::value_type::unknown)
 							return false;
-						else if (data.value.type != ljson::value_type::string && not data.value.value.empty())
+						else if (data.value.get_type() != ljson::value_type::string &&
+							 not data.value.get_value().empty())
 						{
 							auto ok = end_statement::flush_value(data);
 							if (not ok && ok.error().value() == error_type::parsing_error_wrong_type)
 								return unexpected(error(error_type::parsing_error,
 								    "reached an empty-space on non-string unknown type: " +
-									data.value.value));
+									data.value.get_value()));
 							else
 								return ok;
 						}
@@ -760,7 +797,7 @@ namespace ljson {
 								data.hierarchy.top().first == json_syntax::array))
 							{
 								data.hierarchy.push({json_syntax::string_value, data.line_number});
-								data.value.type = ljson::value_type::string;
+								data.value.set_type(ljson::value_type::string);
 							}
 							else if (not data.hierarchy.empty() &&
 								 data.hierarchy.top().first == json_syntax::string_value)
@@ -779,7 +816,7 @@ namespace ljson {
 
 					static bool quote(const struct parsing_data& data)
 					{
-						if (data.line[data.i] == '"' && data.value.type != value_type::temp_escape_type)
+						if (data.line[data.i] == '"' && data.value.get_type() != value_type::temp_escape_type)
 							return true;
 						else
 							return false;
@@ -875,7 +912,8 @@ namespace ljson {
 						{
 							return unexpected(error(error_type::parsing_error,
 							    std::format("two consecutive columns at: {}, key: {}, val: {}, line: {}",
-								data.line_number, data.keys.top().first, data.value.value, data.line)));
+								data.line_number, data.keys.top().first, data.value.get_value(),
+								data.line)));
 						}
 						else
 						{
@@ -989,7 +1027,7 @@ namespace ljson {
 			struct escape {
 					static expected<bool, error> handle_escape_char(struct parsing_data& data)
 					{
-						if (data.value.type != value_type::temp_escape_type)
+						if (data.value.get_type() != value_type::temp_escape_type)
 							return false;
 
 						if (not is_next_char_correct(data.line[data.i]))
@@ -1005,7 +1043,7 @@ namespace ljson {
 
 					static bool is_escape_char(const struct parsing_data& data)
 					{
-						if (data.value.type == value_type::string && data.line[data.i] == '\\')
+						if (data.value.get_type() == value_type::string && data.line[data.i] == '\\')
 						{
 							return true;
 						}
@@ -1048,33 +1086,33 @@ namespace ljson {
 
 						if (escape::is_escape_char(data))
 						{
-							data.value.type = value_type::temp_escape_type;
+							data.value.set_type(value_type::temp_escape_type);
 						}
 						else if (auto ok = escape::handle_escape_char(data); (ok && ok.value()) || not ok)
 						{
 							if (not ok)
 								return ok;
-							data.value.type = value_type::string;
+							data.value.set_type(value_type::string);
 						}
 						else
 						{
 							if (data.hierarchy.top().first == json_syntax::string_value)
 							{
-								data.value.type = value_type::string;
+								data.value.set_type(value_type::string);
 							}
 						}
 
-						data.value.value += data.line[data.i];
+						data.value += data.line[data.i];
 
 						return true;
 					}
 
 					static bool empty_value_in_non_string(const struct parsing_data& data)
 					{
-						if (data.value.value.empty())
+						if (data.value.get_value().empty())
 							return false;
-						else if (data.value.type != ljson::value_type::string &&
-							 (data.value.value.back() == ' ' || data.value.value.back() == '\t'))
+						else if (data.value.get_type() != ljson::value_type::string &&
+							 (data.value.get_value().back() == ' ' || data.value.get_value().back() == '\t'))
 							return true;
 						else
 							return false;
@@ -1178,33 +1216,34 @@ namespace ljson {
 						if (pop_flush_element(data))
 							data.hierarchy.pop();
 
-						if (data.value.value == "null")
+						if (data.value.get_value() == "null")
 						{
-							data.value.type = value_type::null;
+							data.value.set_type(value_type::null);
 						}
-						else if (data.value.value == "true" || data.value.value == "false")
+						else if (data.value.get_value() == "true" || data.value.get_value() == "false")
 						{
-							data.value.type = value_type::boolean;
+							data.value.set_type(value_type::boolean);
 						}
-						else if (is_num_decimal(data.value.value))
+						else if (is_num_decimal(data.value.get_value()))
 						{
-							data.value.type = value_type::number;
+							data.value.set_type(value_type::number);
 							if (empty_space_in_number(data))
 							{
 								return unexpected(error(error_type::parsing_error_wrong_type,
-								    std::format(
-									"type error: '{}', in line: '{}'", data.value.value, data.line)));
+								    std::format("type error: '{}', in line: '{}'", data.value.get_value(),
+									data.line)));
 							}
 						}
-						else if (data.value.type == ljson::value_type::none && data.value.value.empty())
+						else if (data.value.get_type() == ljson::value_type::none && data.value.get_value().empty())
 						{
 							return true;
 						}
-						else if (data.value.type != ljson::value_type::string)
+						else if (data.value.get_type() != ljson::value_type::string)
 						{
-							data.value.type = value_type::unknown;
+							data.value.set_type(value_type::unknown);
 							return unexpected(error(error_type::parsing_error_wrong_type,
-							    std::format("unknown type: '{}', in line: '{}'", data.value.value, data.line)));
+							    std::format(
+								"unknown type: '{}', in line: '{}'", data.value.get_value(), data.line)));
 						}
 
 						if (data.keys.top().second == key_type::simple_key)
@@ -1228,13 +1267,13 @@ namespace ljson {
 							auto ok = fill_array_data(data);
 							if (not ok)
 								return unexpected(ok.error());
-							data.value.value.clear();
-							data.value.type = ljson::value_type::none;
+							data.value.set_value("");
+							data.value.set_type(ljson::value_type::none);
 							return true;
 						}
 
-						data.value.value.clear();
-						data.value.type = ljson::value_type::none;
+						data.value.set_value("");
+						data.value.set_type(ljson::value_type::none);
 						data.keys.top().first.clear();
 						data.keys.top().second = key_type::none;
 						data.hierarchy.pop();
@@ -1253,7 +1292,7 @@ namespace ljson {
 						{
 							return true;
 						}
-						else if (data.line[data.i] == '}' && not data.value.value.empty())
+						else if (data.line[data.i] == '}' && not data.value.get_value().empty())
 						{
 							return true;
 						}
@@ -1470,23 +1509,23 @@ namespace ljson {
 		}
 		else if constexpr (std::is_same<is_allowed_value_type, bool>::value)
 		{
-			return ljson::value{.value = value ? "true" : "false", .type = ljson::value_type::boolean};
+			return ljson::value(value ? "true" : "false", ljson::value_type::boolean);
 		}
 		else if constexpr (std::is_arithmetic<is_allowed_value_type>::value)
 		{
-			return ljson::value{.value = std::to_string(value), .type = ljson::value_type::number};
+			return ljson::value(std::to_string(value), ljson::value_type::number);
 		}
 		else if constexpr (std::is_same<is_allowed_value_type, std::string>::value)
 		{
-			return ljson::value{.value = value, .type = ljson::value_type::string};
+			return ljson::value(value, ljson::value_type::string);
 		}
 		else if constexpr (std::is_same<is_allowed_value_type, const char*>::value)
 		{
-			return ljson::value{.value = value, .type = ljson::value_type::string};
+			return ljson::value(value, ljson::value_type::string);
 		}
 		else if constexpr (std::is_same<is_allowed_value_type, null_type>::value)
 		{
-			return ljson::value{.value = "null", .type = ljson::value_type::null};
+			return ljson::value("null", ljson::value_type::null);
 		}
 		else if constexpr (std::is_same<is_allowed_value_type, ljson::node>::value)
 		{
@@ -1510,50 +1549,50 @@ namespace ljson {
 			struct value value;
 			if (any_value.type() == typeid(bool))
 			{
-				auto val    = std::any_cast<bool>(any_value);
-				value.type  = value_type::boolean;
-				value.value = (val == true ? "true" : "false");
+				auto val = std::any_cast<bool>(any_value);
+				value.set_type(value_type::boolean);
+				value.set_value(val == true ? "true" : "false");
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(double))
 			{
-				auto val    = std::any_cast<double>(any_value);
-				value.type  = value_type::number;
-				value.value = std::to_string(val);
+				auto val = std::any_cast<double>(any_value);
+				value.set_type(value_type::number);
+				value.set_value(std::to_string(val));
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(int))
 			{
-				auto val    = std::any_cast<int>(any_value);
-				value.type  = value_type::number;
-				value.value = std::to_string(val);
+				auto val = std::any_cast<int>(any_value);
+				value.set_type(value_type::number);
+				value.set_value(std::to_string(val));
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(float))
 			{
-				auto val    = std::any_cast<float>(any_value);
-				value.type  = value_type::number;
-				value.value = std::to_string(val);
+				auto val = std::any_cast<float>(any_value);
+				value.set_type(value_type::number);
+				value.set_value(std::to_string(val));
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(const char*))
 			{
-				auto val    = std::any_cast<const char*>(any_value);
-				value.type  = value_type::string;
-				value.value = val;
+				auto val = std::any_cast<const char*>(any_value);
+				value.set_type(value_type::string);
+				value.set_value(val);
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(std::string))
 			{
-				auto val    = std::any_cast<std::string>(any_value);
-				value.type  = value_type::string;
-				value.value = val;
+				auto val = std::any_cast<std::string>(any_value);
+				value.set_type(value_type::string);
+				value.set_value(val);
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(ljson::null_type))
 			{
-				value.type  = value_type::null;
-				value.value = "null";
+				value.set_type(value_type::null);
+				value.set_value("null");
 				insert_func(value);
 			}
 			else
@@ -1831,7 +1870,7 @@ namespace ljson {
 		else if (this->is_value())
 		{
 			auto val = std::get<std::shared_ptr<struct value>>(_node);
-			return val->type;
+			return val->get_type();
 		}
 		else
 			return value_type::unknown;
@@ -1873,9 +1912,9 @@ namespace ljson {
 	{
 		if (this->is_value())
 		{
-			auto n	 = this->as_value();
-			n->value = val->value;
-			n->type	 = val->type;
+			auto n = this->as_value();
+			n->set_value(val->get_value());
+			n->set_type(val->get_type());
 		}
 		else
 		{
@@ -1888,9 +1927,9 @@ namespace ljson {
 	{
 		if (this->is_value())
 		{
-			auto n	 = this->as_value();
-			n->value = val.value;
-			n->type	 = val.type;
+			auto n = this->as_value();
+			n->set_value(val.get_value());
+			n->set_type(val.get_type());
 		}
 		else
 		{
@@ -1913,10 +1952,7 @@ namespace ljson {
 
 	class node& node::operator=(const std::string& val)
 	{
-		_node	 = std::make_shared<struct value>(val);
-		auto n	 = this->as_value();
-		n->value = val;
-		n->type	 = ljson::value_type::string;
+		_node = std::make_shared<struct value>(val, ljson::value_type::string);
 		return *this;
 	}
 
@@ -1929,10 +1965,7 @@ namespace ljson {
 
 	class node& node::operator=(const null_type)
 	{
-		_node	 = std::make_shared<struct value>();
-		auto n	 = this->as_value();
-		n->value = "null";
-		n->type	 = ljson::value_type::null;
+		_node = std::make_shared<struct value>("null", ljson::value_type::null);
 		return *this;
 	}
 
@@ -1940,19 +1973,13 @@ namespace ljson {
 	class node& node::operator=(const number_type& val)
 	{
 		static_assert(std::is_arithmetic<number_type>::value, "Template paramenter must be a numeric type");
-		_node	 = std::make_shared<struct value>();
-		auto n	 = this->as_value();
-		n->value = std::to_string(val);
-		n->type	 = ljson::value_type::number;
+		_node = std::make_shared<struct value>(std::to_string(val), ljson::value_type::number);
 		return *this;
 	}
 
 	class node& node::operator=(const bool val)
 	{
-		_node	 = std::make_shared<struct value>();
-		auto n	 = this->as_value();
-		n->value = std::format("{}", val);
-		n->type	 = ljson::value_type::boolean;
+		_node = std::make_shared<struct value>(std::format("{}", val), ljson::value_type::boolean);
 		return *this;
 	}
 
@@ -2077,17 +2104,14 @@ namespace ljson {
 
 		auto val = this->as_value();
 
-		val->value = value.value;
-		val->type  = value.type;
+		*val = value;
 
 		return monostate();
 	}
 
 	expected<monostate, error> node::set(const std::string& value)
 	{
-		struct value new_value;
-		new_value.type	= ljson::value_type::string;
-		new_value.value = value;
+		struct value new_value(value, ljson::value_type::string);
 
 		this->set(new_value);
 
@@ -2098,9 +2122,7 @@ namespace ljson {
 	expected<monostate, error> node::set(const number_type value)
 	{
 		static_assert(std::is_arithmetic<number_type>::value, "Template paramenter must be a numeric type");
-		struct value new_value;
-		new_value.type	= ljson::value_type::number;
-		new_value.value = std::to_string(value);
+		struct value new_value(std::to_string(value), ljson::value_type::number);
 
 		this->set(new_value);
 
@@ -2109,9 +2131,7 @@ namespace ljson {
 
 	expected<monostate, error> node::set(const bool value)
 	{
-		struct value new_value;
-		new_value.type	= ljson::value_type::boolean;
-		new_value.value = (value == true ? "true" : "false");
+		struct value new_value(value == true ? "true" : "false", ljson::value_type::boolean);
 
 		this->set(new_value);
 
@@ -2127,9 +2147,7 @@ namespace ljson {
 
 	expected<monostate, error> node::set(const ljson::null_type)
 	{
-		struct value new_value;
-		new_value.type	= ljson::value_type::null;
-		new_value.value = "null";
+		struct value new_value("null", ljson::value_type::null);
 
 		this->set(new_value);
 
@@ -2146,10 +2164,10 @@ namespace ljson {
 			{
 				auto val = std::get<std::shared_ptr<struct value>>(value_or_nclass);
 				assert(val != nullptr);
-				if (val->type == ljson::value_type::string)
-					out_func(std::format("\"{}\"", val->value));
+				if (val->get_type() == ljson::value_type::string)
+					out_func(std::format("\"{}\"", val->get_value()));
 				else
-					out_func(std::format("{}", val->value));
+					out_func(std::format("{}", val->get_value()));
 			}
 			else
 			{
