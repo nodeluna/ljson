@@ -12,7 +12,6 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <expected>
 #include <map>
 #include <stack>
 #include <fstream>
@@ -23,8 +22,186 @@
 #include <vector>
 #include <cassert>
 #include <source_location>
+#include <type_traits>
 
 namespace ljson {
+
+	struct monostate {};
+
+	template<class T = monostate, class E = monostate>
+	class expected {
+		private:
+			bool		   _has_value = false;
+			std::variant<T, E> _value_or_error;
+
+		public:
+			expected(const T& t) : _has_value(true), _value_or_error(t)
+			{
+			}
+
+			expected(const E& e) : _has_value(false), _value_or_error(e)
+			{
+			}
+
+			expected() : _has_value(true)
+			{
+				_value_or_error = T();
+			}
+
+			expected& operator=(const expected& other)
+			{
+				if (this != &other)
+				{
+					this->~expected();
+					_has_value	= other._has_value;
+					_value_or_error = other._value_or_error;
+				}
+
+				return *this;
+			}
+
+			template<class U>
+			expected(const expected<U, E>& other) : _has_value(other.has_value())
+			{
+				if (_has_value)
+				{
+					if constexpr (std::is_same_v<U, monostate>)
+					{
+						_value_or_error = T();
+					}
+					else if constexpr (std::is_same_v<U, T>)
+					{
+						_value_or_error = other.value();
+					}
+					else
+					{
+						static_assert(false && "no available conversion between the provided value types");
+					}
+				}
+				else
+				{
+					_value_or_error = other.error();
+				}
+			}
+
+			~expected()
+			{
+			}
+
+			bool has_value() const noexcept
+			{
+				return _has_value;
+			}
+
+			explicit operator bool() const noexcept
+			{
+				return this->has_value();
+			}
+
+			constexpr const T& value() const&
+			{
+				if (not _has_value)
+				{
+					throw std::runtime_error("Attempted to access the value of a error state");
+				}
+				return std::get<T>(_value_or_error);
+			}
+
+			constexpr const E& error() const&
+			{
+				if (_has_value)
+				{
+					throw std::runtime_error("Attempted to access the error of a value state");
+				}
+				return std::get<E>(_value_or_error);
+			}
+
+			constexpr T& value() &
+			{
+				if (not _has_value)
+				{
+					throw std::runtime_error("Attempted to access the value of a error state");
+				}
+				return std::get<T>(_value_or_error);
+			}
+
+			constexpr E& error() &
+			{
+				if (_has_value)
+				{
+					throw std::runtime_error("Attempted to access the error of a value state");
+				}
+				return std::get<E>(_value_or_error);
+			}
+
+			constexpr const T&& value() const&&
+			{
+				if (not _has_value)
+				{
+					throw std::runtime_error("Attempted to access the value of a error state");
+				}
+				return std::get<T>(_value_or_error);
+			}
+
+			constexpr const E&& error() const&&
+			{
+				if (_has_value)
+				{
+					throw std::runtime_error("Attempted to access the error of a value state");
+				}
+				return std::get<E>(_value_or_error);
+			}
+
+			constexpr T&& value() &&
+			{
+				if (not _has_value)
+				{
+					throw std::runtime_error("Attempted to access the value of a error state");
+				}
+				return std::get<T>(_value_or_error);
+			}
+
+			constexpr E&& error() &&
+			{
+				if (_has_value)
+				{
+					throw std::runtime_error("Attempted to access the error of a value state");
+				}
+				return std::get<E>(_value_or_error);
+			}
+
+			template<class U = std::remove_cv_t<T>>
+			constexpr T value_or(U&& other) const&
+			{
+				static_assert(std::is_convertible_v<U, T>);
+				if (_has_value)
+					return std::get<T>(_value_or_error);
+				else
+					return static_cast<T>(std::forward<U>(other));
+			}
+
+			template<class U = std::remove_cv_t<T>>
+			constexpr E error_or(U&& other) const&
+			{
+				static_assert(std::is_convertible_v<U, E>);
+				if (not _has_value)
+					return std::get<E>(_value_or_error);
+				else
+					return static_cast<E>(std::forward<U>(other));
+			}
+	};
+
+	template<class E>
+	expected<monostate, E> unexpected(const E& e)
+	{
+		return expected<monostate, E>(e);
+	}
+
+	expected<monostate, std::string> unexpected(const char* e)
+	{
+		return unexpected<std::string>(std::string(e));
+	}
+
 	std::string log(const std::string& msg, std::source_location location = std::source_location::current())
 	{
 		const std::string reset	 = "\x1b[0m";
@@ -282,10 +459,10 @@ namespace ljson {
 			node(const std::initializer_list<std::any>& val);
 
 			template<typename value_type_concept>
-			std::expected<class ljson::node, error> insert(const std::string& key, const value_type_concept& node);
+			expected<class ljson::node, error> insert(const std::string& key, const value_type_concept& node);
 
 			template<typename value_type_concept>
-			std::expected<class ljson::node, error> push_back(const value_type_concept& node);
+			expected<class ljson::node, error> push_back(const value_type_concept& node);
 
 			std::shared_ptr<struct value>  as_value() const;
 			std::shared_ptr<ljson::array>  as_array() const;
@@ -314,29 +491,29 @@ namespace ljson {
 			class node  operator+(const node& other_node);
 
 			template<typename number_type>
-			std::expected<std::monostate, error> set(const number_type value);
-			std::expected<std::monostate, error> set(const struct value& value);
-			std::expected<std::monostate, error> set(const std::string& value);
-			std::expected<std::monostate, error> set(const bool value);
-			std::expected<std::monostate, error> set(const ljson::null_type value);
-			std::expected<std::monostate, error> set(const char* value);
+			expected<monostate, error> set(const number_type value);
+			expected<monostate, error> set(const struct value& value);
+			expected<monostate, error> set(const std::string& value);
+			expected<monostate, error> set(const bool value);
+			expected<monostate, error> set(const ljson::null_type value);
+			expected<monostate, error> set(const char* value);
 
 			void dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf = {' ', 4},
 			    int indent = 0) const;
 			void dump_to_stdout(const std::pair<char, int>& indent_conf = {' ', 4});
-			std::string			     dump_to_string(const std::pair<char, int>& indent_conf = {' ', 4});
-			std::expected<std::monostate, error> write_to_file(
+			std::string		   dump_to_string(const std::pair<char, int>& indent_conf = {' ', 4});
+			expected<monostate, error> write_to_file(
 			    const std::filesystem::path& path, const std::pair<char, int>& indent_conf = {' ', 4});
 
-			std::expected<class ljson::node, error> add_value_to_key(const std::string& key, const struct value& value);
-			std::expected<class ljson::node, error> add_node_to_key(const std::string& key, const ljson::node& node);
-			std::expected<class ljson::node, error> add_value_to_array(const struct value& value);
-			std::expected<class ljson::node, error> add_value_to_array(const size_t index, const struct value& value);
-			std::expected<class ljson::node, error> add_node_to_array(const ljson::node& node);
-			std::expected<class ljson::node, error> add_node_to_array(const size_t index, const ljson::node& node);
-			std::expected<class ljson::node, error> add_array_to_key(const std::string& key);
-			std::expected<class ljson::node, error> add_object_to_array();
-			std::expected<class ljson::node, error> add_object_to_key(const std::string& key);
+			expected<class ljson::node, error> add_value_to_key(const std::string& key, const struct value& value);
+			expected<class ljson::node, error> add_node_to_key(const std::string& key, const ljson::node& node);
+			expected<class ljson::node, error> add_value_to_array(const struct value& value);
+			expected<class ljson::node, error> add_value_to_array(const size_t index, const struct value& value);
+			expected<class ljson::node, error> add_node_to_array(const ljson::node& node);
+			expected<class ljson::node, error> add_node_to_array(const size_t index, const ljson::node& node);
+			expected<class ljson::node, error> add_array_to_key(const std::string& key);
+			expected<class ljson::node, error> add_object_to_array();
+			expected<class ljson::node, error> add_object_to_key(const std::string& key);
 	};
 
 	class array {
@@ -461,8 +638,8 @@ namespace ljson {
 
 	class parser {
 		private:
-			bool done_or_not_ok(const std::expected<bool, error>& ok);
-			void throw_error_if_not_ok(const std::expected<bool, error>& ok);
+			bool done_or_not_ok(const expected<bool, error>& ok);
+			void throw_error_if_not_ok(const expected<bool, error>& ok);
 			void check_unhandled_hierarchy(const std::string& raw_json, struct parsing_data& data);
 			void parsing(struct parsing_data& data);
 
@@ -488,7 +665,7 @@ namespace ljson {
 
 	struct parser_syntax {
 			struct open_bracket {
-					static std::expected<bool, error> handle_open_bracket(struct parsing_data& data)
+					static expected<bool, error> handle_open_bracket(struct parsing_data& data)
 					{
 						if (data.line[data.i] == '{' && not value::is_string(data))
 						{
@@ -501,7 +678,7 @@ namespace ljson {
 			};
 
 			struct empty {
-					static std::expected<bool, error> handle_empty(struct parsing_data& data)
+					static expected<bool, error> handle_empty(struct parsing_data& data)
 					{
 						if (data.line[data.i] != ' ' && data.line[data.i] != '\t')
 							return false;
@@ -518,7 +695,7 @@ namespace ljson {
 						{
 							auto ok = end_statement::flush_value(data);
 							if (not ok && ok.error().value() == error_type::parsing_error_wrong_type)
-								return std::unexpected(error(error_type::parsing_error,
+								return unexpected(error(error_type::parsing_error,
 								    "reached an empty-space on non-string unknown type: " +
 									data.value.value));
 							else
@@ -530,7 +707,7 @@ namespace ljson {
 			};
 
 			struct key {
-					static std::expected<bool, error> handle_key(struct parsing_data& data)
+					static expected<bool, error> handle_key(struct parsing_data& data)
 					{
 						if (quotes::is_hierarchy_qoutes(data.hierarchy) && not array::is_array(data))
 						{
@@ -543,7 +720,7 @@ namespace ljson {
 			};
 
 			struct quotes {
-					static std::expected<bool, error> handle_quotes(struct parsing_data& data)
+					static expected<bool, error> handle_quotes(struct parsing_data& data)
 					{
 						bool found_qoute = false;
 						if (quote(data))
@@ -611,7 +788,7 @@ namespace ljson {
 			};
 
 			struct array {
-					static std::expected<bool, error> handle_array(struct parsing_data& data)
+					static expected<bool, error> handle_array(struct parsing_data& data)
 					{
 						if (data.hierarchy.empty() || end_statement::is_end_statement(data) ||
 						    value::is_string(data))
@@ -624,7 +801,7 @@ namespace ljson {
 
 							auto ok = data.json_objs.top().add_array_to_key(data.keys.top().first);
 							if (not ok)
-								return std::unexpected(ok.error());
+								return unexpected(ok.error());
 							data.json_objs.push(ok.value());
 
 							if (end_statement::next_char_is_newline(data))
@@ -670,7 +847,7 @@ namespace ljson {
 			};
 
 			struct column {
-					static std::expected<bool, error> handle_column(struct parsing_data& data)
+					static expected<bool, error> handle_column(struct parsing_data& data)
 					{
 						if (data.line[data.i] != ':')
 							return false;
@@ -679,7 +856,7 @@ namespace ljson {
 
 						if (two_consecutive_columns(data.hierarchy))
 						{
-							return std::unexpected(error(error_type::parsing_error,
+							return unexpected(error(error_type::parsing_error,
 							    std::format("two consecutive columns at: {}, key: {}, val: {}, line: {}",
 								data.line_number, data.keys.top().first, data.value.value, data.line)));
 						}
@@ -710,7 +887,7 @@ namespace ljson {
 			};
 
 			struct object {
-					static std::expected<bool, error> handle_object(struct parsing_data& data)
+					static expected<bool, error> handle_object(struct parsing_data& data)
 					{
 						if (data.hierarchy.empty() || end_statement::is_end_statement(data) ||
 						    value::is_string(data))
@@ -722,14 +899,14 @@ namespace ljson {
 							{
 								auto ok = data.json_objs.top().add_object_to_array();
 								if (not ok)
-									return std::unexpected(ok.error());
+									return unexpected(ok.error());
 								data.json_objs.push(ok.value());
 							}
 							else
 							{
 								auto ok = data.json_objs.top().add_object_to_key(data.keys.top().first);
 								if (not ok)
-									return std::unexpected(ok.error());
+									return unexpected(ok.error());
 								data.json_objs.push(ok.value());
 							}
 
@@ -793,7 +970,7 @@ namespace ljson {
 			};
 
 			struct escape {
-					static std::expected<bool, error> handle_escape_char(struct parsing_data& data)
+					static expected<bool, error> handle_escape_char(struct parsing_data& data)
 					{
 						if (data.value.type != value_type::temp_escape_type)
 							return false;
@@ -803,7 +980,7 @@ namespace ljson {
 							std::string err = std::format("escape sequence is incorrect. expected [\", \\, "
 										      "t, b, f, n, r, u, /] found: {}\nline: {}",
 							    data.line[data.i], data.line);
-							return std::unexpected(error(error_type::parsing_error, err));
+							return unexpected(error(error_type::parsing_error, err));
 						}
 
 						return true;
@@ -831,7 +1008,7 @@ namespace ljson {
 			};
 
 			struct value {
-					static std::expected<bool, error> handle_value(struct parsing_data& data)
+					static expected<bool, error> handle_value(struct parsing_data& data)
 					{
 						if (data.hierarchy.empty())
 							return false;
@@ -929,7 +1106,7 @@ namespace ljson {
 						return false;
 					}
 
-					static std::expected<bool, error> flush_value(struct parsing_data& data)
+					static expected<bool, error> flush_value(struct parsing_data& data)
 					{
 						data.hierarchy.push({json_syntax::flush_value, data.line_number});
 						return handle_end_statement(data);
@@ -969,7 +1146,7 @@ namespace ljson {
 						return false;
 					}
 
-					static std::expected<bool, error> handle_end_statement(struct parsing_data& data)
+					static expected<bool, error> handle_end_statement(struct parsing_data& data)
 					{
 						if (not is_end_statement(data))
 						{
@@ -997,7 +1174,7 @@ namespace ljson {
 							data.value.type = value_type::number;
 							if (empty_space_in_number(data))
 							{
-								return std::unexpected(error(error_type::parsing_error_wrong_type,
+								return unexpected(error(error_type::parsing_error_wrong_type,
 								    std::format(
 									"type error: '{}', in line: '{}'", data.value.value, data.line)));
 							}
@@ -1009,7 +1186,7 @@ namespace ljson {
 						else if (data.value.type != ljson::value_type::string)
 						{
 							data.value.type = value_type::unknown;
-							return std::unexpected(error(error_type::parsing_error_wrong_type,
+							return unexpected(error(error_type::parsing_error_wrong_type,
 							    std::format("unknown type: '{}', in line: '{}'", data.value.value, data.line)));
 						}
 
@@ -1018,7 +1195,7 @@ namespace ljson {
 							auto ok = data.json_objs.top().insert(data.keys.top().first, data.value);
 							if (not ok)
 							{
-								return std::unexpected(error(error_type::parsing_error,
+								return unexpected(error(error_type::parsing_error,
 								    std::format("{}", ljson::log("internal parsing error: [adding "
 												 "value to simple_key]"))));
 							}
@@ -1027,13 +1204,13 @@ namespace ljson {
 						{
 							auto ok = fill_object_data(data);
 							if (not ok)
-								return std::unexpected(ok.error());
+								return unexpected(ok.error());
 						}
 						else if (array::is_array(data))
 						{
 							auto ok = fill_array_data(data);
 							if (not ok)
-								return std::unexpected(ok.error());
+								return unexpected(ok.error());
 							data.value.value.clear();
 							data.value.type = ljson::value_type::none;
 							return true;
@@ -1081,31 +1258,31 @@ namespace ljson {
 						return false;
 					}
 
-					static std::expected<std::monostate, error> fill_object_data(struct parsing_data& data)
+					static expected<monostate, error> fill_object_data(struct parsing_data& data)
 					{
 						if (data.keys.top().second == key_type::simple_key)
 						{
 							auto ok = data.json_objs.top().insert(data.keys.top().first, data.value);
 							if (not ok)
 							{
-								return std::unexpected(error(error_type::parsing_error,
+								return unexpected(error(error_type::parsing_error,
 								    "internal parsing error\n[adding value to object]"));
 							}
 						}
 
-						return std::monostate();
+						return monostate();
 					}
 
-					static std::expected<std::monostate, error> fill_array_data(struct parsing_data& data)
+					static expected<monostate, error> fill_array_data(struct parsing_data& data)
 					{
 						auto ok = data.json_objs.top().push_back(data.value);
 						if (not ok)
 						{
-							return std::unexpected(error(
+							return unexpected(error(
 							    error_type::parsing_error, "internal parsing error\n[adding value to array]"));
 						}
 
-						return std::monostate();
+						return monostate();
 					}
 
 					static bool run_till_end_of_statement(struct parsing_data& data)
@@ -1133,7 +1310,7 @@ namespace ljson {
 			};
 
 			struct closing_bracket {
-					static std::expected<bool, error> handle_closing_bracket(struct parsing_data& data)
+					static expected<bool, error> handle_closing_bracket(struct parsing_data& data)
 					{
 						if (data.line[data.i] != '}' || value::is_string(data))
 							return false;
@@ -1144,12 +1321,12 @@ namespace ljson {
 						else
 						{
 							if (not data.hierarchy.empty())
-								return std::unexpected(error(error_type::parsing_error,
+								return unexpected(error(error_type::parsing_error,
 								    std::format("error at: {}, hierarchy.size: {}: line_num: {}, line: {}",
 									data.line[data.i], data.hierarchy.size(),
 									data.hierarchy.top().second, data.line)));
 							else
-								return std::unexpected(error(error_type::parsing_error,
+								return unexpected(error(error_type::parsing_error,
 								    std::format("extra closing bracket at line: {}", data.line_number)));
 						}
 
@@ -1158,11 +1335,11 @@ namespace ljson {
 			};
 
 			struct syntax_error {
-					static std::expected<bool, error> handle_syntax_error(struct parsing_data& data)
+					static expected<bool, error> handle_syntax_error(struct parsing_data& data)
 					{
 						if (end_statement::is_end_statement(data))
 							return false;
-						return std::unexpected(
+						return unexpected(
 						    error(error_type::parsing_error, std::format("syntax error: line: '{}'\n[error]: {}",
 											 data.line, expected_x_but_found_y(data))));
 					}
@@ -1421,29 +1598,29 @@ namespace ljson {
 		}
 	}
 
-	std::expected<class ljson::node, error> node::add_array_to_key(const std::string& key)
+	expected<class ljson::node, error> node::add_array_to_key(const std::string& key)
 	{
 		if (not this->is_object())
-			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add array to an object node"));
+			return unexpected(error(error_type::wrong_type, "wrong type: trying to add array to an object node"));
 
 		auto obj = this->as_object();
 		return obj->insert(key, ljson::node(value_type::array));
 	}
 
-	std::expected<class ljson::node, error> node::add_object_to_array()
+	expected<class ljson::node, error> node::add_object_to_array()
 	{
 		if (not this->is_array())
-			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add object to an array node"));
+			return unexpected(error(error_type::wrong_type, "wrong type: trying to add object to an array node"));
 
 		auto arr = this->as_array();
 		arr->push_back(ljson::node(value_type::object));
 		return arr->back();
 	}
 
-	std::expected<class ljson::node, error> node::add_node_to_array(const ljson::node& node)
+	expected<class ljson::node, error> node::add_node_to_array(const ljson::node& node)
 	{
 		if (not this->is_array())
-			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an array node"));
+			return unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an array node"));
 
 		auto arr = this->as_array();
 		arr->push_back(node);
@@ -1451,14 +1628,14 @@ namespace ljson {
 		return arr->back();
 	}
 
-	std::expected<class ljson::node, error> node::add_node_to_array(const size_t index, const ljson::node& node)
+	expected<class ljson::node, error> node::add_node_to_array(const size_t index, const ljson::node& node)
 	{
 		if (not this->is_array())
-			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an array node"));
+			return unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an array node"));
 
 		auto arr = this->as_array();
 		if (index >= arr->size())
-			return std::unexpected(
+			return unexpected(
 			    error(error_type::wrong_type, "wrong type: trying to add node to an array node at an out-of-band index"));
 
 		(*arr)[index] = node;
@@ -1466,26 +1643,26 @@ namespace ljson {
 		return (*arr)[index];
 	}
 
-	std::expected<class ljson::node, error> node::add_object_to_key(const std::string& key)
+	expected<class ljson::node, error> node::add_object_to_key(const std::string& key)
 	{
 		if (not this->is_object())
-			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add object to an object node"));
+			return unexpected(error(error_type::wrong_type, "wrong type: trying to add object to an object node"));
 
 		auto obj = this->as_object();
 		return obj->insert(key, ljson::node(value_type::object));
 	}
 
-	std::expected<class ljson::node, error> node::add_node_to_key(const std::string& key, const ljson::node& node)
+	expected<class ljson::node, error> node::add_node_to_key(const std::string& key, const ljson::node& node)
 	{
 		if (not this->is_object())
-			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an object node"));
+			return unexpected(error(error_type::wrong_type, "wrong type: trying to add node to an object node"));
 
 		auto obj = this->as_object();
 		return obj->insert(key, node);
 	}
 
 	template<typename value_type_concept>
-	std::expected<class ljson::node, error> node::insert(const std::string& key, const value_type_concept& value)
+	expected<class ljson::node, error> node::insert(const std::string& key, const value_type_concept& value)
 	{
 		if constexpr (is_allowed_value_type<value_type_concept>)
 		{
@@ -1501,7 +1678,7 @@ namespace ljson {
 			}
 			else
 			{
-				return std::unexpected(error(error_type::wrong_type, "wrong type: trying to insert to an object node"));
+				return unexpected(error(error_type::wrong_type, "wrong type: trying to insert to an object node"));
 			}
 		}
 		else if constexpr (container_type_concept<value_type_concept>)
@@ -1516,7 +1693,7 @@ namespace ljson {
 	}
 
 	template<typename value_type_concept>
-	std::expected<class ljson::node, error> node::push_back(const value_type_concept& value)
+	expected<class ljson::node, error> node::push_back(const value_type_concept& value)
 	{
 		if constexpr (is_allowed_value_type<value_type_concept>)
 		{
@@ -1532,7 +1709,7 @@ namespace ljson {
 			}
 			else
 			{
-				return std::unexpected(error(error_type::wrong_type, "wrong type: trying to push_back to an array node"));
+				return unexpected(error(error_type::wrong_type, "wrong type: trying to push_back to an array node"));
 			}
 		}
 		else if constexpr (container_type_concept<value_type_concept>)
@@ -1546,33 +1723,33 @@ namespace ljson {
 		}
 	}
 
-	std::expected<class ljson::node, error> node::add_value_to_key(const std::string& key, const struct value& value)
+	expected<class ljson::node, error> node::add_value_to_key(const std::string& key, const struct value& value)
 	{
 		if (not this->is_object())
-			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an object node"));
+			return unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an object node"));
 
 		auto obj = this->as_object();
 		return obj->insert(key, ljson::node(value));
 	}
 
-	std::expected<class ljson::node, error> node::add_value_to_array(const struct value& value)
+	expected<class ljson::node, error> node::add_value_to_array(const struct value& value)
 	{
 		if (not this->is_array())
-			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an array node"));
+			return unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an array node"));
 
 		auto arr = this->as_array();
 		arr->push_back(ljson::node(value));
 		return arr->back();
 	}
 
-	std::expected<class ljson::node, error> node::add_value_to_array(const size_t index, const struct value& value)
+	expected<class ljson::node, error> node::add_value_to_array(const size_t index, const struct value& value)
 	{
 		if (not this->is_array())
-			return std::unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an array node"));
+			return unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an array node"));
 
 		auto arr = this->as_array();
 		if (index >= arr->size())
-			return std::unexpected(
+			return unexpected(
 			    error(error_type::wrong_type, "wrong type: trying to add value to an array node at an out-of-band index"));
 
 		(*arr)[index] = ljson::node(value);
@@ -1876,20 +2053,20 @@ namespace ljson {
 		}
 	}
 
-	std::expected<std::monostate, error> node::set(const struct value& value)
+	expected<monostate, error> node::set(const struct value& value)
 	{
 		if (not this->is_value())
-			return std::unexpected(error(error_type::wrong_type, "wrong type: can't set value to non-value node-class"));
+			return unexpected(error(error_type::wrong_type, "wrong type: can't set value to non-value node-class"));
 
 		auto val = this->as_value();
 
 		val->value = value.value;
 		val->type  = value.type;
 
-		return std::monostate();
+		return monostate();
 	}
 
-	std::expected<std::monostate, error> node::set(const std::string& value)
+	expected<monostate, error> node::set(const std::string& value)
 	{
 		struct value new_value;
 		new_value.type	= ljson::value_type::string;
@@ -1897,11 +2074,11 @@ namespace ljson {
 
 		this->set(new_value);
 
-		return std::monostate();
+		return monostate();
 	}
 
 	template<typename number_type>
-	std::expected<std::monostate, error> node::set(const number_type value)
+	expected<monostate, error> node::set(const number_type value)
 	{
 		static_assert(std::is_arithmetic<number_type>::value, "Template paramenter must be a numeric type");
 		struct value new_value;
@@ -1910,10 +2087,10 @@ namespace ljson {
 
 		this->set(new_value);
 
-		return std::monostate();
+		return monostate();
 	}
 
-	std::expected<std::monostate, error> node::set(const bool value)
+	expected<monostate, error> node::set(const bool value)
 	{
 		struct value new_value;
 		new_value.type	= ljson::value_type::boolean;
@@ -1921,17 +2098,17 @@ namespace ljson {
 
 		this->set(new_value);
 
-		return std::monostate();
+		return monostate();
 	}
 
-	std::expected<std::monostate, error> node::set(const char* value)
+	expected<monostate, error> node::set(const char* value)
 	{
 		std::string str = value;
 		this->set(str);
-		return std::monostate();
+		return monostate();
 	}
 
-	std::expected<std::monostate, error> node::set(const ljson::null_type)
+	expected<monostate, error> node::set(const ljson::null_type)
 	{
 		struct value new_value;
 		new_value.type	= ljson::value_type::null;
@@ -1939,7 +2116,7 @@ namespace ljson {
 
 		this->set(new_value);
 
-		return std::monostate();
+		return monostate();
 	}
 
 	void node::dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf, int indent) const
@@ -2020,24 +2197,24 @@ namespace ljson {
 		return data;
 	}
 
-	std::expected<std::monostate, error> node::write_to_file(const std::filesystem::path& path, const std::pair<char, int>& indent_conf)
+	expected<monostate, error> node::write_to_file(const std::filesystem::path& path, const std::pair<char, int>& indent_conf)
 	{
 		std::ofstream file(path);
 		if (not file.is_open())
-			return std::unexpected(error(error_type::filesystem_error, std::strerror(errno)));
+			return unexpected(error(error_type::filesystem_error, std::strerror(errno)));
 
 		auto func = [&file](const std::string& output) { file << output; };
 		this->dump(func, indent_conf);
 		file.close();
 
-		return std::monostate();
+		return monostate();
 	}
 
 	parser::parser()
 	{
 	}
 
-	bool parser::done_or_not_ok(const std::expected<bool, error>& ok)
+	bool parser::done_or_not_ok(const expected<bool, error>& ok)
 	{
 		if ((ok && ok.value()) || not ok)
 			return true;
@@ -2045,7 +2222,7 @@ namespace ljson {
 			return false;
 	}
 
-	void parser::throw_error_if_not_ok(const std::expected<bool, error>& ok)
+	void parser::throw_error_if_not_ok(const expected<bool, error>& ok)
 	{
 		if (not ok)
 			throw ok.error();
@@ -2080,7 +2257,7 @@ namespace ljson {
 
 	void parser::parsing(struct parsing_data& data)
 	{
-		std::expected<bool, error> ok;
+		expected<bool, error> ok;
 
 		if (parser_syntax::end_statement::run_till_end_of_statement(data))
 			return;

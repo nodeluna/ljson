@@ -1,7 +1,7 @@
 ljson is an easy to use header only json library for c++
 
 # requirements
-- compiler that supports c++23
+- compiler that supports c++20
 - gcc 13 or clang 18
 
 # usage
