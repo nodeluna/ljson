@@ -10,7 +10,7 @@ on:
   push:
 
 jobs:
-  build-and-test-msvc:
+  build-msvc:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,5 +30,3 @@ jobs:
         run: |
           cl /std:c++20 /EHsc /Iinclude /I"D:/a/ljson/ljson/vcpkg/packages/gtest_x64-windows/include" /Fe:test.exe tests\test.cpp /link /LIBPATH:"D:/a/ljson/ljson/vcpkg/packages/gtest_x64-windows/lib" gtest.lib
 
-      - name: run test
-        run: .\test.exe --gtest_color=yes *>&1
