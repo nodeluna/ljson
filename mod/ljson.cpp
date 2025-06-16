@@ -18,4 +18,7 @@ export namespace ljson {
 	using ljson::value_type;
 	using ljson::object_pairs;
 	using ljson::array_values;
+	using ljson::expected;
+	using ljson::unexpected;
+	using ljson::monostate;
 }

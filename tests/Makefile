@@ -1,8 +1,9 @@
 SRCS := $(wildcard *.cpp)
 
+CC=g++
 
 all:
-	g++ -std=c++20 -I../include -lgtest -pthread test.cpp -o test
+	$(CC) -std=c++20 -I../include -lgtest -lpthread test.cpp -o test -g -Wall -Wextra -pedantic
 
 format:
 	clang-format -i $(SRCS)
