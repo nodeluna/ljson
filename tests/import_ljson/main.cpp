@@ -1,8 +1,20 @@
-#include <print>
 #include <memory>
 #include <filesystem>
+#include <format>
+#include <iostream>
 
 import ljson;
+
+
+template<typename... args_t>
+void println(std::format_string<args_t...> fmt, args_t&&... args) {
+        std::string output = std::format(fmt, std::forward<args_t>(args)...);
+        std::cout << output << "\n";
+}
+
+void println() {
+        std::cout << "\n";
+}
 
 int main(int argc, char* argv[])
 {
@@ -39,19 +51,19 @@ int main(int argc, char* argv[])
 		auto ok		   = node.at("key").set(ljson::null);
 		ok		   = node.at("key").set("string value");
 		if (not ok)
-			std::println("err: {}", ok.error().message());
+			println("err: {}", ok.error().message());
 
-		node.at("key") = {.value = "new_value", .type = ljson::value_type::string};
+		node.at("key") = "new_value";
 
 		auto obj = node.at("obj").as_object();
 		for (auto [key, value] : *obj)
 		{
 			if (value.is_value())
-				std::println("key: {}, value: {}", key, value.as_value()->value);
+				println("key: {}, value: {}", key, value.as_value()->stringify());
 		}
 
 		if (node.at("obj").contains("arr"))
-			std::println("TRUE if 'obj' contains 'arr'");
+			println("TRUE if 'obj' contains 'arr'");
 
 		node.dump_to_stdout();
 
@@ -61,7 +73,7 @@ int main(int argc, char* argv[])
 			std::shared_ptr<ljson::array> arr = n.as_array();
 			for (auto& i : *arr)
 			{
-				std::println("array element: {}", i.as_value()->value);
+				println("array element: {}", i.as_value()->stringify());
 			}
 		}
 
@@ -72,14 +84,14 @@ int main(int argc, char* argv[])
 			for (auto& [key, value] : *object)
 			{
 				if (value.is_value())
-					std::println("object key: {}: {}", key, value.as_value()->value, value.as_value()->type_name());
+					println("object key: {}: {}", key, value.as_value()->stringify(), value.as_value()->type_name());
 			}
 		}
 		node.dump_to_stdout();
 	}
 	catch (const ljson::error& error)
 	{
-		std::println("err: {}", error.what());
+		println("err: {}", error.what());
 	}
 }
 
