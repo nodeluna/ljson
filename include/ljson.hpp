@@ -786,6 +786,16 @@ namespace ljson {
 				return _array.pop_back();
 			}
 
+			json_array::iterator erase(const json_array::iterator pos)
+			{
+				return _array.erase(pos);
+			}
+
+			json_array::iterator erase(const json_array::iterator begin, const json_array::iterator end)
+			{
+				return _array.erase(begin, end);
+			}
+
 			class node& front()
 			{
 				return _array.front();
@@ -845,6 +855,16 @@ namespace ljson {
 			json_object::size_type erase(const std::string& key)
 			{
 				return _object.erase(key);
+			}
+
+			json_object::iterator erase(const json_object::iterator pos)
+			{
+				return _object.erase(pos);
+			}
+
+			json_object::iterator erase(const json_object::iterator begin, const json_object::iterator end)
+			{
+				return _object.erase(begin, end);
 			}
 
 			size_t size()
