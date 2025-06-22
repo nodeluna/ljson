@@ -96,7 +96,7 @@ TEST_F(ljson_test, object_iteration)
 
 			EXPECT_TRUE(value.is_value());
 			EXPECT_EQ(itr->second.first, value.as_value()->stringify());
-			EXPECT_EQ(itr->second.second, value.as_value()->get_type());
+			EXPECT_EQ(itr->second.second, value.as_value()->type());
 		}
 	}
 	catch (ljson::error& error)
@@ -147,7 +147,7 @@ TEST_F(ljson_test, array_iteration)
 			auto itr = arr.find(value.as_value()->stringify());
 			EXPECT_NE(itr, arr.end());
 
-			EXPECT_EQ(value.as_value()->get_type(), itr->second);
+			EXPECT_EQ(value.as_value()->type(), itr->second);
 		}
 	}
 	catch (ljson::error& error)
@@ -247,7 +247,7 @@ TEST_F(ljson_test, construct_from_initializer_list_from_array)
 		auto itr = val.find(value.as_value()->stringify());
 		EXPECT_NE(itr, val.end());
 
-		EXPECT_EQ(itr->second, value.as_value()->get_type());
+		EXPECT_EQ(itr->second, value.as_value()->type());
 	}
 }
 
@@ -262,20 +262,14 @@ TEST_F(ljson_test, default_node_type)
 	EXPECT_THROW(node.as_array(), ljson::error);
 	EXPECT_THROW(node.as_value(), ljson::error);
 
-	ljson::node node2(ljson::value_type::array);
+	ljson::node node2(ljson::node_type::array);
 	EXPECT_NO_THROW(node2.as_array());
 
-	ljson::node node3(ljson::value_type::number);
+	ljson::node node3(ljson::node_type::value);
 	EXPECT_NO_THROW(node3.as_value());
 
-	ljson::node node4(ljson::value_type::string);
-	EXPECT_NO_THROW(node4.as_value());
-
-	ljson::node node5(ljson::value_type::boolean);
-	EXPECT_NO_THROW(node5.as_value());
-
-	ljson::node node6(ljson::value_type::null);
-	EXPECT_NO_THROW(node6.as_value());
+	ljson::node node4(ljson::node_type::object);
+	EXPECT_NO_THROW(node4.as_object());
 }
 
 TEST_F(ljson_test, invalid_json)
@@ -344,7 +338,7 @@ TEST_F(ljson_test, node_add_object)
 
 TEST_F(ljson_test, node_add_array)
 {
-	ljson::node node(ljson::value_type::array);
+	ljson::node node(ljson::node_type::array);
 	node += ljson::array_values{"value1", "value2", ljson::node({"arr1", "arr2", "arr3"})};
 
 	EXPECT_TRUE(node.is_array());
@@ -491,7 +485,7 @@ TEST_F(ljson_test, insert_into_object)
 
 TEST_F(ljson_test, push_back_into_array)
 {
-	ljson::node node(ljson::value_type::array);
+	ljson::node node(ljson::node_type::array);
 
 	std::map<std::string, int> object = {
 		{"key1", 1},

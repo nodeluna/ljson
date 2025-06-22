@@ -290,11 +290,15 @@ namespace ljson {
 		integer,
 		double_t,
 		null,
-		array,
 		boolean,
-		object,
 		temp_escape_type,
 		unknown,
+	};
+
+	enum class node_type {
+		object,
+		array,
+		value,
 	};
 
 	enum class json_syntax {
@@ -343,25 +347,25 @@ namespace ljson {
 		private:
 			using value_type_variant  = std::variant<std::string, double, int64_t, bool, null_type, monostate>;
 			value_type_variant _value = monostate();
-			value_type	   type	  = value_type::none;
+			value_type	   _type  = value_type::none;
 
 			template<is_allowed_value_type val_type>
 			void set_state(const val_type& val) noexcept
 			{
 				if constexpr (std::is_same_v<val_type, bool>)
 				{
-					type   = value_type::boolean;
+					_type  = value_type::boolean;
 					_value = val;
 				}
 				else if constexpr (std::is_arithmetic_v<val_type>)
 				{
 					if constexpr (std::is_floating_point_v<val_type>)
 					{
-						type = value_type::double_t;
+						_type = value_type::double_t;
 					}
 					else
 					{
-						type = value_type::integer;
+						_type = value_type::integer;
 					}
 
 					_value = val;
@@ -369,17 +373,17 @@ namespace ljson {
 				else if constexpr (std::is_same_v<val_type, std::string> || std::is_same_v<val_type, const char*> ||
 						   std::is_same_v<val_type, char*>)
 				{
-					type   = value_type::string;
+					_type  = value_type::string;
 					_value = val;
 				}
 				else if constexpr (std::is_same_v<val_type, null_type>)
 				{
-					type   = value_type::null;
+					_type  = value_type::null;
 					_value = val;
 				}
 				else if constexpr (std::is_same_v<val_type, monostate>)
 				{
-					type   = value_type::none;
+					_type  = value_type::none;
 					_value = monostate();
 				}
 				else
@@ -390,7 +394,7 @@ namespace ljson {
 
 			expected<monostate, error> set_state(const std::string& val, value_type t)
 			{
-				type = t;
+				_type = t;
 				if (t == value_type::double_t)
 				{
 					_value = std::stod(val);
@@ -417,7 +421,7 @@ namespace ljson {
 				}
 				else
 				{
-					type   = value_type::none;
+					_type  = value_type::none;
 					_value = monostate();
 					return unexpected(error(error_type::wrong_type, "unsupported value_type in struct value"));
 				}
@@ -432,35 +436,35 @@ namespace ljson {
 				this->set_state(val);
 			}
 
-			value(const value& other) : _value(other._value), type(other.type)
+			value(const value& other) : _value(other._value), _type(other._type)
 			{
 			}
 
 			value& operator=(const value& other)
 			{
 				_value = other._value;
-				type   = other.type;
+				_type  = other._type;
 				return *this;
 			}
 
-			value(const value&& other) : _value(std::move(other._value)), type(other.type)
+			value(const value&& other) : _value(std::move(other._value)), _type(other._type)
 			{
 			}
 
 			value& operator=(const value&& other)
 			{
 				_value = std::move(other._value);
-				type   = other.type;
+				_type  = other._type;
 				return *this;
 			}
 
-			value() : _value(monostate()), type(value_type::none)
+			value() : _value(monostate()), _type(value_type::none)
 			{
 			}
 
-			ljson::value_type get_type() const
+			ljson::value_type type() const
 			{
-				return type;
+				return _type;
 			}
 
 			template<is_allowed_value_type val_type>
@@ -670,7 +674,7 @@ namespace ljson {
 	concept container_type_concept = is_key_value_container<container_type> || is_value_container<container_type>;
 
 	template<typename value_type>
-	concept value_type_concept = container_type_concept<value_type> || is_allowed_node_type<value_type>;
+	concept node_type_concept = container_type_concept<value_type> || is_allowed_node_type<value_type>;
 
 	using object_pairs = std::initializer_list<std::pair<std::string, std::any>>;
 	using array_values = std::initializer_list<std::any>;
@@ -692,7 +696,7 @@ namespace ljson {
 		public:
 			explicit node();
 			explicit node(const json_node& n);
-			explicit node(enum value_type type);
+			explicit node(enum node_type type);
 			explicit node(const struct value& value);
 
 			template<typename container_type_concept>
@@ -701,11 +705,11 @@ namespace ljson {
 			node(const std::initializer_list<std::pair<std::string, std::any>>& pairs);
 			node(const std::initializer_list<std::any>& val);
 
-			template<typename value_type_concept>
-			expected<class ljson::node, error> insert(const std::string& key, const value_type_concept& node);
+			template<typename node_type_concept>
+			expected<class ljson::node, error> insert(const std::string& key, const node_type_concept& node);
 
-			template<typename value_type_concept>
-			expected<class ljson::node, error> push_back(const value_type_concept& node);
+			template<typename node_type_concept>
+			expected<class ljson::node, error> push_back(const node_type_concept& node);
 
 			std::shared_ptr<struct value>  as_value() const;
 			std::shared_ptr<ljson::array>  as_array() const;
@@ -713,7 +717,7 @@ namespace ljson {
 			bool			       is_value() const;
 			bool			       is_array() const;
 			bool			       is_object() const;
-			value_type		       type() const;
+			node_type		       type() const;
 			bool			       contains(const std::string& key) const;
 			class node&		       at(const std::string& object_key) const;
 			class node&		       at(const size_t array_index) const;
@@ -1070,7 +1074,7 @@ namespace ljson {
 
 					static bool is_array(const struct parsing_data& data)
 					{
-						if (not data.json_objs.empty() && data.json_objs.top().type() == value_type::array)
+						if (not data.json_objs.empty() && data.json_objs.top().type() == node_type::array)
 							return true;
 						return false;
 					}
@@ -1193,7 +1197,7 @@ namespace ljson {
 					{
 						if (data.json_objs.empty() || data.json_objs.size() == 1)
 							return false;
-						else if (data.json_objs.top().type() == value_type::object)
+						else if (data.json_objs.top().type() == node_type::object)
 							return true;
 						return false;
 					}
@@ -1320,7 +1324,7 @@ namespace ljson {
 
 					static bool is_not_value(const struct parsing_data& data)
 					{
-						if (not data.json_objs.empty() && data.json_objs.top().type() == value_type::array)
+						if (not data.json_objs.empty() && data.json_objs.top().type() == node_type::array)
 						{
 							return false;
 						}
@@ -1644,14 +1648,14 @@ namespace ljson {
 	{
 	}
 
-	node::node(enum value_type type)
+	node::node(enum node_type type)
 	{
-		if (type == value_type::object)
-			_node = std::make_shared<ljson::object>();
-		else if (type == value_type::array)
+		if (type == node_type::value)
+			_node = std::make_shared<struct value>();
+		else if (type == node_type::array)
 			_node = std::make_shared<ljson::array>();
 		else
-			_node = std::make_shared<struct value>();
+			_node = std::make_shared<ljson::object>();
 	}
 
 	template<typename container_type_concept>
@@ -1855,7 +1859,7 @@ namespace ljson {
 			return unexpected(error(error_type::wrong_type, "wrong type: trying to add array to an object node"));
 
 		auto obj = this->as_object();
-		return obj->insert(key, ljson::node(value_type::array));
+		return obj->insert(key, ljson::node(node_type::array));
 	}
 
 	expected<class ljson::node, error> node::add_object_to_array()
@@ -1864,7 +1868,7 @@ namespace ljson {
 			return unexpected(error(error_type::wrong_type, "wrong type: trying to add object to an array node"));
 
 		auto arr = this->as_array();
-		arr->push_back(ljson::node(value_type::object));
+		arr->push_back(ljson::node(node_type::object));
 		return arr->back();
 	}
 
@@ -1900,7 +1904,7 @@ namespace ljson {
 			return unexpected(error(error_type::wrong_type, "wrong type: trying to add object to an object node"));
 
 		auto obj = this->as_object();
-		return obj->insert(key, ljson::node(value_type::object));
+		return obj->insert(key, ljson::node(node_type::object));
 	}
 
 	expected<class ljson::node, error> node::add_node_to_key(const std::string& key, const ljson::node& node)
@@ -1912,10 +1916,10 @@ namespace ljson {
 		return obj->insert(key, node);
 	}
 
-	template<typename value_type_concept>
-	expected<class ljson::node, error> node::insert(const std::string& key, const value_type_concept& value)
+	template<typename node_type_concept>
+	expected<class ljson::node, error> node::insert(const std::string& key, const node_type_concept& value)
 	{
-		if constexpr (is_allowed_node_type<value_type_concept>)
+		if constexpr (is_allowed_node_type<node_type_concept>)
 		{
 			std::variant<struct value, ljson::node> v = this->handle_allowed_node_types(value);
 
@@ -1932,7 +1936,7 @@ namespace ljson {
 				return unexpected(error(error_type::wrong_type, "wrong type: trying to insert to an object node"));
 			}
 		}
-		else if constexpr (container_type_concept<value_type_concept>)
+		else if constexpr (container_type_concept<node_type_concept>)
 		{
 			ljson::node n(value);
 			return this->add_node_to_key(key, n);
@@ -1943,10 +1947,10 @@ namespace ljson {
 		}
 	}
 
-	template<typename value_type_concept>
-	expected<class ljson::node, error> node::push_back(const value_type_concept& value)
+	template<typename node_type_concept>
+	expected<class ljson::node, error> node::push_back(const node_type_concept& value)
 	{
-		if constexpr (is_allowed_node_type<value_type_concept>)
+		if constexpr (is_allowed_node_type<node_type_concept>)
 		{
 			std::variant<struct value, ljson::node> v = this->handle_allowed_node_types(value);
 
@@ -1963,7 +1967,7 @@ namespace ljson {
 				return unexpected(error(error_type::wrong_type, "wrong type: trying to push_back to an array node"));
 			}
 		}
-		else if constexpr (container_type_concept<value_type_concept>)
+		else if constexpr (container_type_concept<node_type_concept>)
 		{
 			ljson::node n(value);
 			return this->add_node_to_array(n);
@@ -2056,19 +2060,14 @@ namespace ljson {
 			return false;
 	}
 
-	value_type node::type() const
+	node_type node::type() const
 	{
-		if (this->is_object())
-			return value_type::object;
+		if (this->is_value())
+			return node_type::value;
 		else if (this->is_array())
-			return value_type::array;
-		else if (this->is_value())
-		{
-			auto val = std::get<std::shared_ptr<struct value>>(_node);
-			return val->get_type();
-		}
+			return node_type::array;
 		else
-			return value_type::unknown;
+			return node_type::object;
 	}
 
 	bool node::contains(const std::string& key) const
@@ -2244,7 +2243,7 @@ namespace ljson {
 
 		if (this->is_object())
 		{
-			ljson::node new_node(ljson::value_type::object);
+			ljson::node new_node(ljson::node_type::object);
 			for (const auto& [key, node] : *this->as_object())
 			{
 				new_node.add_node_to_key(key, node);
@@ -2258,7 +2257,7 @@ namespace ljson {
 		}
 		else if (this->is_array())
 		{
-			ljson::node new_node(ljson::value_type::array);
+			ljson::node new_node(ljson::node_type::array);
 			for (const auto& node : *this->as_array())
 			{
 				new_node.add_node_to_array(node);
@@ -2273,12 +2272,13 @@ namespace ljson {
 		else
 		{
 			ljson::node new_node(this->type());
+			auto	    val = this->as_value();
 
-			if (this->type() == value_type::string)
+			if (val->type() == value_type::string)
 			{
 				new_node = this->as_value()->as_string() + other_node.as_value()->as_string();
 			}
-			else if (this->type() == value_type::double_t || this->type() == value_type::integer) // TODO: int vs double
+			else if (val->type() == value_type::double_t || val->type() == value_type::integer)
 			{
 				new_node = this->as_value()->as_number() + other_node.as_value()->as_number();
 			}
@@ -2358,7 +2358,7 @@ namespace ljson {
 			{
 				auto val = std::get<std::shared_ptr<struct value>>(value_or_nclass);
 				assert(val != nullptr);
-				if (val->get_type() == ljson::value_type::string)
+				if (val->type() == ljson::value_type::string)
 					out_func(std::format("\"{}\"", val->stringify()));
 				else
 					out_func(std::format("{}", val->stringify()));
@@ -2539,7 +2539,7 @@ namespace ljson {
 
 	ljson::node parser::parse(const std::filesystem::path& path)
 	{
-		ljson::node json_data = ljson::node(value_type::object);
+		ljson::node json_data = ljson::node(node_type::object);
 
 		std::unique_ptr<std::ifstream> file = std::make_unique<std::ifstream>(path);
 		if (not file->is_open())
@@ -2578,7 +2578,7 @@ namespace ljson {
 
 	ljson::node parser::parse(const std::string& raw_json)
 	{
-		ljson::node json_data = ljson::node(value_type::object);
+		ljson::node json_data = ljson::node(node_type::object);
 
 		struct parsing_data data;
 
