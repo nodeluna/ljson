@@ -45,7 +45,6 @@ namespace ljson {
 
 			expected() : _has_value(true), _value_or_error(T())
 			{
-				
 			}
 
 			expected& operator=(const expected& other)
@@ -335,13 +334,61 @@ namespace ljson {
 
 	inline null_type null;
 
+	template<typename allowed_value_types>
+	concept is_allowed_value_type = std::is_same_v<allowed_value_types, std::string> ||
+					std::is_same_v<allowed_value_types, const char*> || std::is_arithmetic_v<allowed_value_types> ||
+					std::is_same_v<allowed_value_types, null_type> || std::is_same_v<allowed_value_types, bool>;
+
 	struct value {
 		private:
 			using value_type_variant  = std::variant<std::string, double, int64_t, bool, null_type, monostate>;
 			value_type_variant _value = monostate();
 			value_type	   type	  = value_type::none;
 
-			expected<monostate, error>  set_state(const std::string& val, value_type t)
+			template<is_allowed_value_type val_type>
+			void set_state(const val_type& val) noexcept
+			{
+				if constexpr (std::is_same_v<val_type, bool>)
+				{
+					type   = value_type::boolean;
+					_value = val;
+				}
+				else if constexpr (std::is_arithmetic_v<val_type>)
+				{
+					if constexpr (std::is_floating_point_v<val_type>)
+					{
+						type = value_type::double_t;
+					}
+					else
+					{
+						type = value_type::integer;
+					}
+
+					_value = val;
+				}
+				else if constexpr (std::is_same_v<val_type, std::string> || std::is_same_v<val_type, const char*> ||
+						   std::is_same_v<val_type, char*>)
+				{
+					type   = value_type::string;
+					_value = val;
+				}
+				else if constexpr (std::is_same_v<val_type, null_type>)
+				{
+					type   = value_type::null;
+					_value = val;
+				}
+				else if constexpr (std::is_same_v<val_type, monostate>)
+				{
+					type   = value_type::none;
+					_value = monostate();
+				}
+				else
+				{
+					static_assert(false && "unsupported value_type in struct value");
+				}
+			}
+
+			expected<monostate, error> set_state(const std::string& val, value_type t)
 			{
 				type = t;
 				if (t == value_type::double_t)
@@ -379,9 +426,10 @@ namespace ljson {
 			}
 
 		public:
-			value(const std::string& val, value_type t) : _value(val), type(t)
+			template<is_allowed_value_type val_type>
+			value(const val_type& val) noexcept
 			{
-				this->set_state(val, t);
+				this->set_state(val);
 			}
 
 			value(const value& other) : _value(other._value), type(other.type)
@@ -391,7 +439,18 @@ namespace ljson {
 			value& operator=(const value& other)
 			{
 				_value = other._value;
-				type = other.type;
+				type   = other.type;
+				return *this;
+			}
+
+			value(const value&& other) : _value(std::move(other._value)), type(other.type)
+			{
+			}
+
+			value& operator=(const value&& other)
+			{
+				_value = std::move(other._value);
+				type   = other.type;
 				return *this;
 			}
 
@@ -399,70 +458,15 @@ namespace ljson {
 			{
 			}
 
-			std::string stringify() const
-			{
-				if (this->is_double())
-				{
-					std::string str = std::to_string(std::get<double>(_value));
-
-					auto pop_zeros_at_the_end = [&]()
-					{
-						bool found_zero = false;
-						for (size_t i = str.size() - 1;; i--)
-						{
-							if (str[i] == '0' && not found_zero)
-							{
-								found_zero = true;
-							}
-							else if (str[i] == '0' && found_zero)
-							{
-								str.pop_back();
-							}
-							else if (found_zero)
-							{
-								str.pop_back();
-								found_zero = false;
-							}
-							else
-								break;
-
-							if (i == 0)
-								break;
-						}
-
-						if (not str.empty() && str.back() == '.')
-							str += "0";
-					};
-
-					pop_zeros_at_the_end();
-
-					return str;
-				}
-				else if (this->is_integer())
-				{
-					return std::to_string(std::get<int64_t>(_value));
-				}
-				else if (this->is_string())
-				{
-					return std::get<std::string>(_value);
-				}
-				else if (this->is_boolean())
-				{
-					return std::get<bool>(_value) == true ? "true" : "false";
-				}
-				else if (this->is_null())
-				{
-					return "null";
-				}
-				else
-				{
-					return "";
-				}
-			}
-
 			ljson::value_type get_type() const
 			{
 				return type;
+			}
+
+			template<is_allowed_value_type val_type>
+			void set_value_type(const val_type& val) noexcept
+			{
+				this->set_state(val);
 			}
 
 			expected<monostate, error> set_value_type(const std::string& val, value_type t)
@@ -556,27 +560,83 @@ namespace ljson {
 				return std::get<null_type>(_value);
 			}
 
-			std::string type_name() const
+			std::string stringify() const noexcept
 			{
-				switch (type)
+				if (this->is_double())
 				{
-					case ljson::value_type::string:
-						return "string";
-					case ljson::value_type::boolean:
-						return "boolean";
-					case ljson::value_type::null:
-						return "null";
-					case ljson::value_type::number:
-						return "number";
-					case ljson::value_type::double_t:
-						return "double";
-					case ljson::value_type::integer:
-						return "double";
-					case ljson::value_type::none:
-						return "none";
-					default:
-						return "unknown";
+					std::string str = std::to_string(std::get<double>(_value));
+
+					auto pop_zeros_at_the_end = [&]()
+					{
+						bool found_zero = false;
+						for (size_t i = str.size() - 1;; i--)
+						{
+							if (str[i] == '0' && not found_zero)
+							{
+								found_zero = true;
+							}
+							else if (str[i] == '0' && found_zero)
+							{
+								str.pop_back();
+							}
+							else if (found_zero)
+							{
+								str.pop_back();
+								found_zero = false;
+							}
+							else
+								break;
+
+							if (i == 0)
+								break;
+						}
+
+						if (not str.empty() && str.back() == '.')
+							str += "0";
+					};
+
+					pop_zeros_at_the_end();
+
+					return str;
 				}
+				else if (this->is_integer())
+				{
+					return std::to_string(std::get<int64_t>(_value));
+				}
+				else if (this->is_string())
+				{
+					return std::get<std::string>(_value);
+				}
+				else if (this->is_boolean())
+				{
+					return std::get<bool>(_value) == true ? "true" : "false";
+				}
+				else if (this->is_null())
+				{
+					return "null";
+				}
+				else
+				{
+					return "";
+				}
+			}
+
+			std::string type_name() const noexcept
+			{
+				if (this->is_string())
+					return "string";
+				else if (this->is_boolean())
+					return "boolean";
+				else if (this->is_null())
+					return "null";
+				else if (this->is_double())
+					return "double";
+				else if (this->is_integer())
+					return "integer";
+				else if (this->is_empty())
+					return "none";
+				else
+					return "unknown";
 			}
 	};
 
@@ -585,12 +645,11 @@ namespace ljson {
 	class object;
 	class node;
 
-	template<typename allowed_value_types>
-	concept is_allowed_value_type =
-	    std::is_same_v<allowed_value_types, std::string> || std::is_same_v<allowed_value_types, const char*> ||
-	    std::is_arithmetic<allowed_value_types>::value || std::is_same_v<allowed_value_types, null_type> ||
-	    std::is_same_v<allowed_value_types, bool> || std::is_same_v<allowed_value_types, ljson::node> ||
-	    std::is_same_v<allowed_value_types, struct value>;
+	template<typename allowed_node_types>
+	concept is_allowed_node_type = std::is_same_v<allowed_node_types, std::string> || std::is_same_v<allowed_node_types, const char*> ||
+				       std::is_arithmetic_v<allowed_node_types> || std::is_same_v<allowed_node_types, null_type> ||
+				       std::is_same_v<allowed_node_types, bool> || std::is_same_v<allowed_node_types, ljson::node> ||
+				       std::is_same_v<allowed_node_types, struct value>;
 
 	template<typename container_type>
 	concept is_key_value_container = requires(container_type container) {
@@ -598,20 +657,20 @@ namespace ljson {
 		typename container_type::mapped_type;
 		{ container.begin() } -> std::same_as<typename container_type::iterator>;
 		{ container.end() } -> std::same_as<typename container_type::iterator>;
-	} && std::is_same_v<typename container_type::key_type, std::string> && is_allowed_value_type<typename container_type::mapped_type>;
+	} && std::is_same_v<typename container_type::key_type, std::string> && is_allowed_node_type<typename container_type::mapped_type>;
 
 	template<typename container_type>
 	concept is_value_container = requires(container_type container) {
 		typename container_type::value_type;
 		{ container.begin() } -> std::same_as<typename container_type::iterator>;
 		{ container.end() } -> std::same_as<typename container_type::iterator>;
-	} && not is_key_value_container<container_type> && is_allowed_value_type<typename container_type::value_type>;
+	} && not is_key_value_container<container_type> && is_allowed_node_type<typename container_type::value_type>;
 
 	template<typename container_type>
 	concept container_type_concept = is_key_value_container<container_type> || is_value_container<container_type>;
 
 	template<typename value_type>
-	concept value_type_concept = container_type_concept<value_type> || is_allowed_value_type<value_type>;
+	concept value_type_concept = container_type_concept<value_type> || is_allowed_node_type<value_type>;
 
 	using object_pairs = std::initializer_list<std::pair<std::string, std::any>>;
 	using array_values = std::initializer_list<std::any>;
@@ -627,8 +686,8 @@ namespace ljson {
 		protected:
 			void handle_std_any(const std::any& any_value, std::function<void(std::any)> insert_func);
 
-			template<typename is_allowed_value_type>
-			std::variant<struct value, ljson::node> handle_allowed_value_types(const is_allowed_value_type& value);
+			template<typename is_allowed_node_type>
+			std::variant<struct value, ljson::node> handle_allowed_node_types(const is_allowed_node_type& value);
 
 		public:
 			explicit node();
@@ -1604,7 +1663,7 @@ namespace ljson {
 
 			for (auto& val : container)
 			{
-				std::variant<struct value, ljson::node> v = this->handle_allowed_value_types(val);
+				std::variant<struct value, ljson::node> v = this->handle_allowed_node_types(val);
 
 				if (std::holds_alternative<struct value>(v))
 				{
@@ -1622,7 +1681,7 @@ namespace ljson {
 
 			for (auto& [key, val] : container)
 			{
-				std::variant<struct value, ljson::node> v = this->handle_allowed_value_types(val);
+				std::variant<struct value, ljson::node> v = this->handle_allowed_node_types(val);
 
 				if (std::holds_alternative<struct value>(v))
 				{
@@ -1640,43 +1699,43 @@ namespace ljson {
 		}
 	}
 
-	template<typename is_allowed_value_type>
-	std::variant<struct value, ljson::node> node::handle_allowed_value_types(const is_allowed_value_type& value)
+	template<typename is_allowed_node_type>
+	std::variant<struct value, ljson::node> node::handle_allowed_node_types(const is_allowed_node_type& value)
 	{
-		if constexpr (std::is_same<is_allowed_value_type, struct value>::value)
+		if constexpr (std::is_same<is_allowed_node_type, struct value>::value)
 		{
 			return value;
 		}
-		else if constexpr (std::is_same<is_allowed_value_type, bool>::value)
+		else if constexpr (std::is_same<is_allowed_node_type, bool>::value)
 		{
-			return ljson::value(value ? "true" : "false", ljson::value_type::boolean);
+			return ljson::value(value);
 		}
-		else if constexpr (std::is_arithmetic<is_allowed_value_type>::value)
+		else if constexpr (std::is_arithmetic<is_allowed_node_type>::value)
 		{
-			if constexpr (std::is_floating_point_v<is_allowed_value_type>)
-				return ljson::value(std::to_string(value), ljson::value_type::double_t);
+			if constexpr (std::is_floating_point_v<is_allowed_node_type>)
+				return ljson::value(value);
 			else
-				return ljson::value(std::to_string(value), ljson::value_type::integer);
+				return ljson::value(value);
 		}
-		else if constexpr (std::is_same<is_allowed_value_type, std::string>::value)
+		else if constexpr (std::is_same<is_allowed_node_type, std::string>::value)
 		{
-			return ljson::value(value, ljson::value_type::string);
+			return ljson::value(value);
 		}
-		else if constexpr (std::is_same<is_allowed_value_type, const char*>::value)
+		else if constexpr (std::is_same<is_allowed_node_type, const char*>::value)
 		{
-			return ljson::value(value, ljson::value_type::string);
+			return ljson::value(value);
 		}
-		else if constexpr (std::is_same<is_allowed_value_type, null_type>::value)
+		else if constexpr (std::is_same<is_allowed_node_type, null_type>::value)
 		{
-			return ljson::value("null", ljson::value_type::null);
+			return ljson::value(ljson::null);
 		}
-		else if constexpr (std::is_same<is_allowed_value_type, ljson::node>::value)
+		else if constexpr (std::is_same<is_allowed_node_type, ljson::node>::value)
 		{
 			return value;
 		}
 		else
 		{
-			static_assert(false && "unsupported value_type in function node::handle_allowed_value_types(...)");
+			static_assert(false && "unsupported value_type in function node::handle_allowed_node_types(...)");
 		}
 	}
 
@@ -1693,42 +1752,42 @@ namespace ljson {
 			if (any_value.type() == typeid(bool))
 			{
 				auto val = std::any_cast<bool>(any_value);
-				value.set_value_type(val == true ? "true" : "false", value_type::boolean);
+				value.set_value_type(val);
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(double))
 			{
 				auto val = std::any_cast<double>(any_value);
-				value.set_value_type(std::to_string(val), value_type::double_t);
+				value.set_value_type(val);
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(int))
 			{
 				auto val = std::any_cast<int>(any_value);
-				value.set_value_type(std::to_string(val), value_type::integer);
+				value.set_value_type(val);
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(float))
 			{
 				auto val = std::any_cast<float>(any_value);
-				value.set_value_type(std::to_string(val), value_type::double_t);
+				value.set_value_type(val);
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(const char*))
 			{
 				auto val = std::any_cast<const char*>(any_value);
-				value.set_value_type(val, value_type::string);
+				value.set_value_type(val);
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(std::string))
 			{
 				auto val = std::any_cast<std::string>(any_value);
-				value.set_value_type(val, value_type::string);
+				value.set_value_type(val);
 				insert_func(value);
 			}
 			else if (any_value.type() == typeid(ljson::null_type))
 			{
-				value.set_value_type("null", value_type::null);
+				value.set_value_type(ljson::null);
 				insert_func(value);
 			}
 			else
@@ -1856,9 +1915,9 @@ namespace ljson {
 	template<typename value_type_concept>
 	expected<class ljson::node, error> node::insert(const std::string& key, const value_type_concept& value)
 	{
-		if constexpr (is_allowed_value_type<value_type_concept>)
+		if constexpr (is_allowed_node_type<value_type_concept>)
 		{
-			std::variant<struct value, ljson::node> v = this->handle_allowed_value_types(value);
+			std::variant<struct value, ljson::node> v = this->handle_allowed_node_types(value);
 
 			if (std::holds_alternative<struct value>(v))
 			{
@@ -1887,9 +1946,9 @@ namespace ljson {
 	template<typename value_type_concept>
 	expected<class ljson::node, error> node::push_back(const value_type_concept& value)
 	{
-		if constexpr (is_allowed_value_type<value_type_concept>)
+		if constexpr (is_allowed_node_type<value_type_concept>)
 		{
-			std::variant<struct value, ljson::node> v = this->handle_allowed_value_types(value);
+			std::variant<struct value, ljson::node> v = this->handle_allowed_node_types(value);
 
 			if (std::holds_alternative<struct value>(v))
 			{
@@ -2050,7 +2109,7 @@ namespace ljson {
 		if (this->is_value())
 		{
 			auto n = this->as_value();
-			*n = *val;
+			*n     = *val;
 		}
 		else
 		{
@@ -2064,7 +2123,7 @@ namespace ljson {
 		if (this->is_value())
 		{
 			auto n = this->as_value();
-			*n = val;
+			*n     = val;
 		}
 		else
 		{
@@ -2087,7 +2146,7 @@ namespace ljson {
 
 	class node& node::operator=(const std::string& val)
 	{
-		_node = std::make_shared<struct value>(val, ljson::value_type::string);
+		_node = std::make_shared<struct value>(val);
 		return *this;
 	}
 
@@ -2100,7 +2159,7 @@ namespace ljson {
 
 	class node& node::operator=(const null_type)
 	{
-		_node = std::make_shared<struct value>("null", ljson::value_type::null);
+		_node = std::make_shared<struct value>(ljson::null);
 		return *this;
 	}
 
@@ -2108,19 +2167,14 @@ namespace ljson {
 	class node& node::operator=(const number_type& val)
 	{
 		static_assert(std::is_arithmetic<number_type>::value, "Template paramenter must be a numeric type");
-		ljson::value_type type = ljson::value_type::none;
-		if constexpr (std::is_floating_point_v<number_type>)
-			type = ljson::value_type::double_t;
-		else
-			type = ljson::value_type::integer;
-			
-		_node = std::make_shared<struct value>(std::to_string(val), type);
+
+		_node = std::make_shared<struct value>(val);
 		return *this;
 	}
 
 	class node& node::operator=(const bool val)
 	{
-		_node = std::make_shared<struct value>(std::format("{}", val), ljson::value_type::boolean);
+		_node = std::make_shared<struct value>(val);
 		return *this;
 	}
 
@@ -2252,7 +2306,7 @@ namespace ljson {
 
 	expected<monostate, error> node::set(const std::string& value)
 	{
-		struct value new_value(value, ljson::value_type::string);
+		struct value new_value(value);
 
 		this->set(new_value);
 
@@ -2263,15 +2317,7 @@ namespace ljson {
 	expected<monostate, error> node::set(const number_type value)
 	{
 		static_assert(std::is_arithmetic_v<number_type>, "Template paramenter must be a numeric type");
-		struct value new_value;
-		ljson::value_type type = ljson::value_type::none;
-
-		if constexpr (std::is_floating_point_v<number_type>)
-			type = ljson::value_type::double_t;
-		else
-			type = ljson::value_type::integer;
-
-		new_value.set_value_type(std::to_string(value), type);
+		struct value new_value(value);
 		this->set(new_value);
 
 		return monostate();
@@ -2279,7 +2325,7 @@ namespace ljson {
 
 	expected<monostate, error> node::set(const bool value)
 	{
-		struct value new_value(value == true ? "true" : "false", ljson::value_type::boolean);
+		struct value new_value(value);
 
 		this->set(new_value);
 
@@ -2295,7 +2341,7 @@ namespace ljson {
 
 	expected<monostate, error> node::set(const ljson::null_type)
 	{
-		struct value new_value("null", ljson::value_type::null);
+		struct value new_value(ljson::null);
 
 		this->set(new_value);
 
