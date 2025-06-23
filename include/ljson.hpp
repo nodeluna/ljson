@@ -711,7 +711,7 @@ namespace ljson {
 			template<typename node_type_concept>
 			expected<class ljson::node, error> push_back(const node_type_concept& node);
 
-			std::shared_ptr<class value>  as_value() const;
+			std::shared_ptr<class value>   as_value() const;
 			std::shared_ptr<ljson::array>  as_array() const;
 			std::shared_ptr<ljson::object> as_object() const;
 			bool			       is_value() const;
@@ -905,17 +905,20 @@ namespace ljson {
 
 	class parser {
 		private:
-			bool done_or_not_ok(const expected<bool, error>& ok);
-			void throw_error_if_not_ok(const expected<bool, error>& ok);
-			void check_unhandled_hierarchy(const std::string& raw_json, struct parsing_data& data);
-			void parsing(struct parsing_data& data);
+			bool			   done_or_not_ok(const expected<bool, error>& ok);
+			expected<monostate, error> return_error_if_not_ok(const expected<bool, error>& ok);
+			expected<monostate, error> check_unhandled_hierarchy(const std::string& raw_json, struct parsing_data& data);
+			expected<monostate, error> parsing(struct parsing_data& data);
 
 		public:
 			explicit parser();
 			~parser();
-			ljson::node parse(const std::filesystem::path& path);
-			ljson::node parse(const std::string& raw_json);
-			ljson::node parse(const char* raw_json);
+			ljson::node		     parse(const std::filesystem::path& path);
+			ljson::node		     parse(const std::string& raw_json);
+			ljson::node		     parse(const char* raw_json);
+			expected<ljson::node, error> try_parse(const std::filesystem::path& path) noexcept;
+			expected<ljson::node, error> try_parse(const std::string& raw_json) noexcept;
+			expected<ljson::node, error> try_parse(const char* raw_json) noexcept;
 	};
 }
 
@@ -2471,16 +2474,17 @@ namespace ljson {
 			return false;
 	}
 
-	void parser::throw_error_if_not_ok(const expected<bool, error>& ok)
+	expected<monostate, error> parser::return_error_if_not_ok(const expected<bool, error>& ok)
 	{
 		if (not ok)
-			throw ok.error();
+			return unexpected(ok.error());
+		return monostate();
 	}
 
-	void parser::check_unhandled_hierarchy(const std::string& raw_json, struct parsing_data& data)
+	expected<monostate, error> parser::check_unhandled_hierarchy(const std::string& raw_json, struct parsing_data& data)
 	{
 		if (data.hierarchy.empty() || raw_json.empty())
-			return;
+			return monostate();
 
 		if (raw_json.back() == '}' && data.hierarchy.top().first == json_syntax::opening_bracket)
 		{
@@ -2489,7 +2493,7 @@ namespace ljson {
 			assert(data.i < data.line.size());
 			if (auto ok = parser_syntax::closing_bracket::handle_closing_bracket(data); done_or_not_ok(ok))
 			{
-				throw_error_if_not_ok(ok);
+				return return_error_if_not_ok(ok);
 			}
 		}
 		else
@@ -2499,83 +2503,118 @@ namespace ljson {
 			assert(data.i < data.line.size());
 			if (auto ok = parser_syntax::syntax_error::handle_syntax_error(data); done_or_not_ok(ok))
 			{
-				throw_error_if_not_ok(ok);
+				return return_error_if_not_ok(ok);
 			}
 		}
+
+		return monostate();
 	}
 
-	void parser::parsing(struct parsing_data& data)
+	expected<monostate, error> parser::parsing(struct parsing_data& data)
 	{
 		expected<bool, error> ok;
 
 		if (parser_syntax::end_statement::run_till_end_of_statement(data))
-			return;
+			return monostate();
 
 		if (ok = parser_syntax::empty::handle_empty(data); done_or_not_ok(ok))
 		{
-			throw_error_if_not_ok(ok);
+			return return_error_if_not_ok(ok);
 		}
 		else if (ok = parser_syntax::quotes::handle_quotes(data); done_or_not_ok(ok))
 		{
-			throw_error_if_not_ok(ok);
+			return return_error_if_not_ok(ok);
 		}
 		else if (ok = parser_syntax::key::handle_key(data); done_or_not_ok(ok))
 		{
-			throw_error_if_not_ok(ok);
+			return return_error_if_not_ok(ok);
 		}
 		else if (ok = parser_syntax::column::handle_column(data); done_or_not_ok(ok))
 		{
-			throw_error_if_not_ok(ok);
+			return return_error_if_not_ok(ok);
 		}
 		else if (ok = parser_syntax::value::handle_value(data); done_or_not_ok(ok))
 		{
-			throw_error_if_not_ok(ok);
+			return return_error_if_not_ok(ok);
 		}
 		else if (ok = parser_syntax::object::handle_object(data); done_or_not_ok(ok))
 		{
-			throw_error_if_not_ok(ok);
+			return return_error_if_not_ok(ok);
 		}
 		else if (ok = parser_syntax::array::handle_array(data); done_or_not_ok(ok))
 		{
-			throw_error_if_not_ok(ok);
+			return return_error_if_not_ok(ok);
 		}
 		else if (ok = parser_syntax::end_statement::handle_end_statement(data); done_or_not_ok(ok))
 		{
-			throw_error_if_not_ok(ok);
+			return return_error_if_not_ok(ok);
 		}
 		else if (ok = parser_syntax::open_bracket::handle_open_bracket(data); done_or_not_ok(ok))
 		{
-			throw_error_if_not_ok(ok);
+			return return_error_if_not_ok(ok);
 		}
 		else if (ok = parser_syntax::closing_bracket::handle_closing_bracket(data); done_or_not_ok(ok))
 		{
-			throw_error_if_not_ok(ok);
+			return return_error_if_not_ok(ok);
 		}
 		else if (ok = parser_syntax::syntax_error::handle_syntax_error(data); done_or_not_ok(ok))
 		{
-			throw_error_if_not_ok(ok);
+			return return_error_if_not_ok(ok);
 		}
+
+		return monostate();
 	}
 
 	ljson::node parser::parse(const std::filesystem::path& path)
+	{
+		expected<ljson::node, error> ok = this->try_parse(path);
+		if (not ok)
+			throw ok.error();
+
+		return ok.value();
+	}
+
+	ljson::node parser::parse(const char* raw_json)
+	{
+		expected<ljson::node, error> ok = this->try_parse(raw_json);
+		if (not ok)
+			throw ok.error();
+
+		return ok.value();
+	}
+
+	ljson::node parser::parse(const std::string& raw_json)
+	{
+		expected<ljson::node, error> ok = this->try_parse(raw_json);
+		if (not ok)
+			throw ok.error();
+
+		return ok.value();
+	}
+
+	expected<ljson::node, error> parser::try_parse(const std::filesystem::path& path) noexcept
 	{
 		ljson::node json_data = ljson::node(node_type::object);
 
 		std::unique_ptr<std::ifstream> file = std::make_unique<std::ifstream>(path);
 		if (not file->is_open())
-			throw ljson::error(
-			    error_type::filesystem_error, std::format("couldn't open '{}', {}", path.string(), std::strerror(errno)));
+			return unexpected(ljson::error(
+			    error_type::filesystem_error, std::format("couldn't open '{}', {}", path.string(), std::strerror(errno))));
 		struct parsing_data data;
 
 		data.json_objs.push(json_data);
 		data.keys.push({"", key_type::simple_key});
+
+		expected<monostate, error> ok;
 
 		while (std::getline(*file, data.line))
 		{
 			data.line += "\n";
 			for (data.i = 0; data.i < data.line.size(); data.i++)
 			{
-				this->parsing(data);
+				ok = this->parsing(data);
+				if (not ok)
+					return unexpected(ok.error());
 			}
 
 			if (not file->eof())
@@ -2584,19 +2623,14 @@ namespace ljson {
 			data.line_number++;
 		}
 
-		this->check_unhandled_hierarchy(data.line, data);
+		ok = this->check_unhandled_hierarchy(data.line, data);
+		if (not ok)
+			return unexpected(ok.error());
 
 		return json_data;
 	}
 
-	ljson::node parser::parse(const char* raw_json)
-	{
-		assert(raw_json != NULL);
-		std::string string_json(raw_json);
-		return this->parse(string_json);
-	}
-
-	ljson::node parser::parse(const std::string& raw_json)
+	expected<ljson::node, error> parser::try_parse(const std::string& raw_json) noexcept
 	{
 		ljson::node json_data = ljson::node(node_type::object);
 
@@ -2604,6 +2638,8 @@ namespace ljson {
 
 		data.json_objs.push(json_data);
 		data.keys.push({"", key_type::simple_key});
+
+		expected<monostate, error> ok;
 
 		for (size_t i = 0; i < raw_json.size(); i++)
 		{
@@ -2614,7 +2650,9 @@ namespace ljson {
 
 				for (data.i = 0; data.i < data.line.size(); data.i++)
 				{
-					this->parsing(data);
+					ok = this->parsing(data);
+					if (not ok)
+						return unexpected(ok.error());
 				}
 				data.line.clear();
 
@@ -2622,9 +2660,18 @@ namespace ljson {
 			}
 		}
 
-		this->check_unhandled_hierarchy(raw_json, data);
+		ok = this->check_unhandled_hierarchy(raw_json, data);
+		if (not ok)
+			return unexpected(ok.error());
 
 		return json_data;
+	}
+
+	expected<ljson::node, error> parser::try_parse(const char* raw_json) noexcept
+	{
+		assert(raw_json != NULL);
+		std::string string_json(raw_json);
+		return this->try_parse(string_json);
 	}
 
 	parser::~parser()

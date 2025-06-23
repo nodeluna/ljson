@@ -282,6 +282,13 @@ TEST_F(ljson_test, invalid_json)
 	EXPECT_THROW(parser.parse(R"""({"smol":tru e})"""), ljson::error);
 	EXPECT_THROW(parser.parse(R"""({""key":nu ll})"""), ljson::error);
 
+	EXPECT_TRUE(not parser.try_parse("{invalid}"));
+	EXPECT_TRUE(not parser.try_parse("{{}"));
+	EXPECT_TRUE(not parser.try_parse("{\"name\":}"));
+	EXPECT_TRUE(not parser.try_parse(R"""({"age":3 5})"""));
+	EXPECT_TRUE(not parser.try_parse(R"""({"smol":tru e})"""));
+	EXPECT_TRUE(not parser.try_parse(R"""({""key":nu ll})"""));
+
 #if defined(_WIN32) || defined(_WIN64)
 #else
 	ljson::node node = parser.parse(R"""({"na\rm\be\f": "c\tat", "k\ney": "val\"ue"}")""");
@@ -296,6 +303,9 @@ R"""({
 
 	EXPECT_NO_THROW(parser.parse(R"""({"na\rm\be\f": "c\tat", "k\ney": "val\"ue"}")"""));
 	EXPECT_NO_THROW(parser.parse(R"""({"name":"cat","age":5,"smol":true,"key":null})"""));
+
+	EXPECT_TRUE(parser.try_parse(R"""({"na\rm\be\f": "c\tat", "k\ney": "val\"ue"}")"""));
+	EXPECT_TRUE(parser.try_parse(R"""({"name":"cat","age":5,"smol":true,"key":null})"""));
 #endif
 }
 
