@@ -1,6 +1,7 @@
 /*
  * Copyright: 2025 nodeluna
  * SPDX-License-Identifier: Apache-2.0
+ * repository: https://github.com/nodeluna/ljson
  */
 
 #pragma once
@@ -277,6 +278,8 @@ namespace ljson {
 
 		public:
 			error(error_type err, const std::string& message);
+			template<typename... args_t>
+			error(error_type err, std::format_string<args_t...> fmt, args_t&&... args);
 
 			const char*	   what() const noexcept;
 			const std::string& message() const noexcept;
@@ -513,18 +516,22 @@ namespace ljson {
 				return std::holds_alternative<monostate>(_value);
 			}
 
-			std::string as_string()
+			expected<std::string, error> try_as_string() noexcept
 			{
 				if (not this->is_string())
-					throw error(error_type::wrong_type, "wrong type: trying to cast a non-string to a string");
+					return unexpected(error(error_type::wrong_type,
+					    "wrong type: trying to cast the value '{}' which is a '{}' to 'string'", this->stringify(),
+					    this->type_name()));
 
 				return std::get<std::string>(_value);
 			}
 
-			double as_number()
+			expected<double, error> try_as_number() noexcept
 			{
 				if (not this->is_number())
-					throw error(error_type::wrong_type, "wrong type: trying to cast a non-number to a number");
+					return unexpected(error(error_type::wrong_type,
+					    "wrong type: trying to cast the value '{}' which is a '{}' to 'number'", this->stringify(),
+					    this->type_name()));
 
 				if (not this->is_double())
 					return std::get<double>(_value);
@@ -532,36 +539,98 @@ namespace ljson {
 					return std::get<int64_t>(_value);
 			}
 
-			int64_t as_integer()
+			expected<int64_t, error> try_as_integer() noexcept
 			{
 				if (not this->is_integer())
-					throw error(error_type::wrong_type, "wrong type: trying to cast a non-integer to an integer");
+					return unexpected(error(error_type::wrong_type,
+					    "wrong type: trying to cast the value '{}' which is a '{}' to 'integer'", this->stringify(),
+					    this->type_name()));
 
 				return std::get<int64_t>(_value);
 			}
 
-			double as_double()
+			expected<double, error> try_as_double() noexcept
 			{
 				if (not this->is_double())
-					throw error(error_type::wrong_type, "wrong type: trying to cast a non-double to a double");
+					return unexpected(error(error_type::wrong_type,
+					    "wrong type: trying to cast the value '{}' which is a '{}' to 'double'", this->stringify(),
+					    this->type_name()));
 
 				return std::get<double>(_value);
 			}
 
-			bool as_boolean()
+			expected<bool, error> try_as_boolean() noexcept
 			{
 				if (not this->is_boolean())
-					throw error(error_type::wrong_type, "wrong type: trying to cast a non-boolean to a boolean");
+					return unexpected(error(error_type::wrong_type,
+					    "wrong type: trying to cast the value '{}' which is a '{}' to 'boolean'", this->stringify(),
+					    this->type_name()));
 
 				return std::get<bool>(_value);
 			}
 
-			null_type as_null()
+			expected<null_type, error> try_as_null() noexcept
 			{
 				if (not this->is_null())
-					throw error(error_type::wrong_type, "wrong type: trying to cast a non-null to a null");
+					return unexpected(error(error_type::wrong_type,
+					    "wrong type: trying to cast the value '{}' which is a '{}' to 'null'", this->stringify(),
+					    this->type_name()));
 
 				return std::get<null_type>(_value);
+			}
+
+			std::string as_string()
+			{
+				auto ok = this->try_as_string();
+				if (not ok)
+					throw ok.error();
+
+				return ok.value();
+			}
+
+			double as_number()
+			{
+				auto ok = this->try_as_number();
+				if (not ok)
+					throw ok.error();
+
+				return ok.value();
+			}
+
+			int64_t as_integer()
+			{
+				auto ok = this->try_as_integer();
+				if (not ok)
+					throw ok.error();
+
+				return ok.value();
+			}
+
+			double as_double()
+			{
+				auto ok = this->try_as_double();
+				if (not ok)
+					throw ok.error();
+
+				return ok.value();
+			}
+
+			bool as_boolean()
+			{
+				auto ok = this->try_as_boolean();
+				if (not ok)
+					throw ok.error();
+
+				return ok.value();
+			}
+
+			null_type as_null()
+			{
+				auto ok = this->try_as_null();
+				if (not ok)
+					throw ok.error();
+
+				return ok.value();
 			}
 
 			std::string stringify() const noexcept
@@ -2679,6 +2748,12 @@ namespace ljson {
 	}
 
 	error::error(error_type err, const std::string& message) : err_type(err), msg(message)
+	{
+	}
+
+	template<typename... args_t>
+	error::error(error_type err, std::format_string<args_t...> fmt, args_t&&... args)
+	    : err_type(err), msg(std::format(fmt, std::forward<args_t>(args)...))
 	{
 	}
 

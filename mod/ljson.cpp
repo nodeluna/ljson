@@ -1,3 +1,9 @@
+/*
+ * Copyright: 2025 nodeluna
+ * SPDX-License-Identifier: Apache-2.0
+ * repository: https://github.com/nodeluna/ljson
+ */
+
 module;
 
 #include <ljson.hpp>

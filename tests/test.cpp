@@ -49,6 +49,12 @@ TEST_F(ljson_test, parsing_simple_json)
 
 		EXPECT_TRUE(result.at("smol").as_value()->is_boolean());
 		EXPECT_EQ(result.at("smol").as_value()->as_boolean(), true);
+		EXPECT_TRUE(result.at("smol").as_value()->try_as_boolean());
+		EXPECT_TRUE(not result.at("smol").as_value()->try_as_number());
+		EXPECT_TRUE(not result.at("smol").as_value()->try_as_integer());
+		EXPECT_TRUE(not result.at("smol").as_value()->try_as_double());
+		EXPECT_TRUE(not result.at("smol").as_value()->try_as_string());
+		EXPECT_TRUE(not result.at("smol").as_value()->try_as_null());
 
 		result.at("name") = "new_cat";
 		EXPECT_EQ(result.at("name").as_value()->as_string(), "new_cat");
