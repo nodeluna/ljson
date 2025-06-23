@@ -343,7 +343,7 @@ namespace ljson {
 					std::is_same_v<allowed_value_types, const char*> || std::is_arithmetic_v<allowed_value_types> ||
 					std::is_same_v<allowed_value_types, null_type> || std::is_same_v<allowed_value_types, bool>;
 
-	struct value {
+	class value {
 		private:
 			using value_type_variant  = std::variant<std::string, double, int64_t, bool, null_type, monostate>;
 			value_type_variant _value = monostate();
@@ -388,7 +388,7 @@ namespace ljson {
 				}
 				else
 				{
-					static_assert(false && "unsupported value_type in struct value");
+					static_assert(false && "unsupported value_type in class value");
 				}
 			}
 
@@ -423,7 +423,7 @@ namespace ljson {
 				{
 					_type  = value_type::none;
 					_value = monostate();
-					return unexpected(error(error_type::wrong_type, "unsupported value_type in struct value"));
+					return unexpected(error(error_type::wrong_type, "unsupported value_type in class value"));
 				}
 
 				return monostate();
@@ -653,7 +653,7 @@ namespace ljson {
 	concept is_allowed_node_type = std::is_same_v<allowed_node_types, std::string> || std::is_same_v<allowed_node_types, const char*> ||
 				       std::is_arithmetic_v<allowed_node_types> || std::is_same_v<allowed_node_types, null_type> ||
 				       std::is_same_v<allowed_node_types, bool> || std::is_same_v<allowed_node_types, ljson::node> ||
-				       std::is_same_v<allowed_node_types, struct value>;
+				       std::is_same_v<allowed_node_types, class value>;
 
 	template<typename container_type>
 	concept is_key_value_container = requires(container_type container) {
@@ -681,7 +681,7 @@ namespace ljson {
 
 	using json_object = std::map<std::string, class node>;
 	using json_array  = std::vector<class node>;
-	using json_node	  = std::variant<std::shared_ptr<struct value>, std::shared_ptr<ljson::array>, std::shared_ptr<ljson::object>>;
+	using json_node	  = std::variant<std::shared_ptr<class value>, std::shared_ptr<ljson::array>, std::shared_ptr<ljson::object>>;
 
 	class node {
 		private:
@@ -691,13 +691,13 @@ namespace ljson {
 			void handle_std_any(const std::any& any_value, std::function<void(std::any)> insert_func);
 
 			template<typename is_allowed_node_type>
-			std::variant<struct value, ljson::node> handle_allowed_node_types(const is_allowed_node_type& value);
+			std::variant<class value, ljson::node> handle_allowed_node_types(const is_allowed_node_type& value);
 
 		public:
 			explicit node();
 			explicit node(const json_node& n);
 			explicit node(enum node_type type);
-			explicit node(const struct value& value);
+			explicit node(const class value& value);
 
 			template<typename container_type_concept>
 			explicit node(const container_type_concept& container);
@@ -711,7 +711,7 @@ namespace ljson {
 			template<typename node_type_concept>
 			expected<class ljson::node, error> push_back(const node_type_concept& node);
 
-			std::shared_ptr<struct value>  as_value() const;
+			std::shared_ptr<class value>  as_value() const;
 			std::shared_ptr<ljson::array>  as_array() const;
 			std::shared_ptr<ljson::object> as_object() const;
 			bool			       is_value() const;
@@ -724,8 +724,8 @@ namespace ljson {
 
 			template<typename number_type>
 			class node& operator=(const number_type& val);
-			class node& operator=(const std::shared_ptr<struct value>& val);
-			class node& operator=(const struct value& val);
+			class node& operator=(const std::shared_ptr<class value>& val);
+			class node& operator=(const class value& val);
 			class node& operator=(const std::shared_ptr<ljson::array>& arr);
 			class node& operator=(const std::shared_ptr<ljson::object>& obj);
 			class node& operator=(const std::string& val);
@@ -739,7 +739,7 @@ namespace ljson {
 
 			template<typename number_type>
 			expected<monostate, error> set(const number_type value);
-			expected<monostate, error> set(const struct value& value);
+			expected<monostate, error> set(const class value& value);
 			expected<monostate, error> set(const std::string& value);
 			expected<monostate, error> set(const bool value);
 			expected<monostate, error> set(const ljson::null_type value);
@@ -752,10 +752,10 @@ namespace ljson {
 			expected<monostate, error> write_to_file(
 			    const std::filesystem::path& path, const std::pair<char, int>& indent_conf = {' ', 4});
 
-			expected<class ljson::node, error> add_value_to_key(const std::string& key, const struct value& value);
+			expected<class ljson::node, error> add_value_to_key(const std::string& key, const class value& value);
 			expected<class ljson::node, error> add_node_to_key(const std::string& key, const ljson::node& node);
-			expected<class ljson::node, error> add_value_to_array(const struct value& value);
-			expected<class ljson::node, error> add_value_to_array(const size_t index, const struct value& value);
+			expected<class ljson::node, error> add_value_to_array(const class value& value);
+			expected<class ljson::node, error> add_value_to_array(const size_t index, const class value& value);
 			expected<class ljson::node, error> add_node_to_array(const ljson::node& node);
 			expected<class ljson::node, error> add_node_to_array(const size_t index, const ljson::node& node);
 			expected<class ljson::node, error> add_array_to_key(const std::string& key);
@@ -927,7 +927,7 @@ namespace ljson {
 			std::stack<std::pair<std::string, key_type>> keys;
 			std::stack<ljson::node>			     json_objs;
 			std::pair<std::string, value_type>	     raw_value;
-			struct value				     value;
+			class value				     value;
 			std::stack<std::pair<json_syntax, size_t>>   hierarchy;
 	};
 
@@ -1664,14 +1664,14 @@ namespace ljson {
 	{
 	}
 
-	node::node(const struct value& value) : _node(std::make_shared<struct value>(value))
+	node::node(const class value& value) : _node(std::make_shared<class value>(value))
 	{
 	}
 
 	node::node(enum node_type type)
 	{
 		if (type == node_type::value)
-			_node = std::make_shared<struct value>();
+			_node = std::make_shared<class value>();
 		else if (type == node_type::array)
 			_node = std::make_shared<ljson::array>();
 		else
@@ -1687,11 +1687,11 @@ namespace ljson {
 
 			for (auto& val : container)
 			{
-				std::variant<struct value, ljson::node> v = this->handle_allowed_node_types(val);
+				std::variant<class value, ljson::node> v = this->handle_allowed_node_types(val);
 
-				if (std::holds_alternative<struct value>(v))
+				if (std::holds_alternative<class value>(v))
 				{
-					this->push_back(node(std::get<struct value>(v)));
+					this->push_back(node(std::get<class value>(v)));
 				}
 				else
 				{
@@ -1705,11 +1705,11 @@ namespace ljson {
 
 			for (auto& [key, val] : container)
 			{
-				std::variant<struct value, ljson::node> v = this->handle_allowed_node_types(val);
+				std::variant<class value, ljson::node> v = this->handle_allowed_node_types(val);
 
-				if (std::holds_alternative<struct value>(v))
+				if (std::holds_alternative<class value>(v))
 				{
-					this->insert(key, node(std::get<struct value>(v)));
+					this->insert(key, node(std::get<class value>(v)));
 				}
 				else
 				{
@@ -1724,9 +1724,9 @@ namespace ljson {
 	}
 
 	template<typename is_allowed_node_type>
-	std::variant<struct value, ljson::node> node::handle_allowed_node_types(const is_allowed_node_type& value)
+	std::variant<class value, ljson::node> node::handle_allowed_node_types(const is_allowed_node_type& value)
 	{
-		if constexpr (std::is_same<is_allowed_node_type, struct value>::value)
+		if constexpr (std::is_same<is_allowed_node_type, class value>::value)
 		{
 			return value;
 		}
@@ -1772,7 +1772,7 @@ namespace ljson {
 		}
 		else
 		{
-			struct value value;
+			class value value;
 			if (any_value.type() == typeid(bool))
 			{
 				auto val = std::any_cast<bool>(any_value);
@@ -1836,7 +1836,7 @@ namespace ljson {
 			}
 			else
 			{
-				auto val = std::any_cast<struct value>(value);
+				auto val = std::any_cast<class value>(value);
 				map->insert(key, ljson::node(val));
 			}
 		};
@@ -1862,7 +1862,7 @@ namespace ljson {
 			}
 			else
 			{
-				auto val = std::any_cast<struct value>(value);
+				auto val = std::any_cast<class value>(value);
 				vector->push_back(ljson::node(val));
 			}
 		};
@@ -1941,11 +1941,11 @@ namespace ljson {
 	{
 		if constexpr (is_allowed_node_type<node_type_concept>)
 		{
-			std::variant<struct value, ljson::node> v = this->handle_allowed_node_types(value);
+			std::variant<class value, ljson::node> v = this->handle_allowed_node_types(value);
 
-			if (std::holds_alternative<struct value>(v))
+			if (std::holds_alternative<class value>(v))
 			{
-				return this->add_value_to_key(key, std::get<struct value>(v));
+				return this->add_value_to_key(key, std::get<class value>(v));
 			}
 			else if (std::holds_alternative<ljson::node>(v))
 			{
@@ -1972,11 +1972,11 @@ namespace ljson {
 	{
 		if constexpr (is_allowed_node_type<node_type_concept>)
 		{
-			std::variant<struct value, ljson::node> v = this->handle_allowed_node_types(value);
+			std::variant<class value, ljson::node> v = this->handle_allowed_node_types(value);
 
-			if (std::holds_alternative<struct value>(v))
+			if (std::holds_alternative<class value>(v))
 			{
-				return this->add_value_to_array(std::get<struct value>(v));
+				return this->add_value_to_array(std::get<class value>(v));
 			}
 			else if (std::holds_alternative<ljson::node>(v))
 			{
@@ -1998,7 +1998,7 @@ namespace ljson {
 		}
 	}
 
-	expected<class ljson::node, error> node::add_value_to_key(const std::string& key, const struct value& value)
+	expected<class ljson::node, error> node::add_value_to_key(const std::string& key, const class value& value)
 	{
 		if (not this->is_object())
 			return unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an object node"));
@@ -2007,7 +2007,7 @@ namespace ljson {
 		return obj->insert(key, ljson::node(value));
 	}
 
-	expected<class ljson::node, error> node::add_value_to_array(const struct value& value)
+	expected<class ljson::node, error> node::add_value_to_array(const class value& value)
 	{
 		if (not this->is_array())
 			return unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an array node"));
@@ -2017,7 +2017,7 @@ namespace ljson {
 		return arr->back();
 	}
 
-	expected<class ljson::node, error> node::add_value_to_array(const size_t index, const struct value& value)
+	expected<class ljson::node, error> node::add_value_to_array(const size_t index, const class value& value)
 	{
 		if (not this->is_array())
 			return unexpected(error(error_type::wrong_type, "wrong type: trying to add value to an array node"));
@@ -2032,12 +2032,12 @@ namespace ljson {
 		return (*arr)[index];
 	}
 
-	std::shared_ptr<struct value> node::as_value() const
+	std::shared_ptr<class value> node::as_value() const
 	{
 		if (not this->is_value())
 			throw error(error_type::wrong_type, "wrong type: trying to cast a non-value node to a value");
 
-		return std::get<std::shared_ptr<struct value>>(_node);
+		return std::get<std::shared_ptr<class value>>(_node);
 	}
 
 	std::shared_ptr<ljson::array> node::as_array() const
@@ -2058,7 +2058,7 @@ namespace ljson {
 
 	bool node::is_value() const
 	{
-		if (std::holds_alternative<std::shared_ptr<struct value>>(_node))
+		if (std::holds_alternative<std::shared_ptr<class value>>(_node))
 			return true;
 		else
 			return false;
@@ -2122,7 +2122,7 @@ namespace ljson {
 		return arr->at(array_index);
 	}
 
-	class node& node::operator=(const std::shared_ptr<struct value>& val)
+	class node& node::operator=(const std::shared_ptr<class value>& val)
 	{
 		assert(val != nullptr);
 		if (this->is_value())
@@ -2137,7 +2137,7 @@ namespace ljson {
 		return *this;
 	}
 
-	class node& node::operator=(const struct value& val)
+	class node& node::operator=(const class value& val)
 	{
 		if (this->is_value())
 		{
@@ -2146,7 +2146,7 @@ namespace ljson {
 		}
 		else
 		{
-			_node = std::make_shared<struct value>(val);
+			_node = std::make_shared<class value>(val);
 		}
 		return *this;
 	}
@@ -2165,7 +2165,7 @@ namespace ljson {
 
 	class node& node::operator=(const std::string& val)
 	{
-		_node = std::make_shared<struct value>(val);
+		_node = std::make_shared<class value>(val);
 		return *this;
 	}
 
@@ -2178,7 +2178,7 @@ namespace ljson {
 
 	class node& node::operator=(const null_type)
 	{
-		_node = std::make_shared<struct value>(ljson::null);
+		_node = std::make_shared<class value>(ljson::null);
 		return *this;
 	}
 
@@ -2187,13 +2187,13 @@ namespace ljson {
 	{
 		static_assert(std::is_arithmetic<number_type>::value, "Template paramenter must be a numeric type");
 
-		_node = std::make_shared<struct value>(val);
+		_node = std::make_shared<class value>(val);
 		return *this;
 	}
 
 	class node& node::operator=(const bool val)
 	{
-		_node = std::make_shared<struct value>(val);
+		_node = std::make_shared<class value>(val);
 		return *this;
 	}
 
@@ -2214,7 +2214,7 @@ namespace ljson {
 			}
 			else
 			{
-				auto val = std::any_cast<struct value>(value);
+				auto val = std::any_cast<class value>(value);
 				map->insert(key, ljson::node(val));
 			}
 		};
@@ -2244,7 +2244,7 @@ namespace ljson {
 			}
 			else
 			{
-				auto val = std::any_cast<struct value>(value);
+				auto val = std::any_cast<class value>(value);
 				vector->push_back(ljson::node(val));
 			}
 		};
@@ -2312,7 +2312,7 @@ namespace ljson {
 		}
 	}
 
-	expected<monostate, error> node::set(const struct value& value)
+	expected<monostate, error> node::set(const class value& value)
 	{
 		if (not this->is_value())
 			return unexpected(error(error_type::wrong_type, "wrong type: can't set value to non-value node-class"));
@@ -2326,7 +2326,7 @@ namespace ljson {
 
 	expected<monostate, error> node::set(const std::string& value)
 	{
-		struct value new_value(value);
+		class value new_value(value);
 
 		this->set(new_value);
 
@@ -2337,7 +2337,7 @@ namespace ljson {
 	expected<monostate, error> node::set(const number_type value)
 	{
 		static_assert(std::is_arithmetic_v<number_type>, "Template paramenter must be a numeric type");
-		struct value new_value(value);
+		class value new_value(value);
 		this->set(new_value);
 
 		return monostate();
@@ -2345,7 +2345,7 @@ namespace ljson {
 
 	expected<monostate, error> node::set(const bool value)
 	{
-		struct value new_value(value);
+		class value new_value(value);
 
 		this->set(new_value);
 
@@ -2361,7 +2361,7 @@ namespace ljson {
 
 	expected<monostate, error> node::set(const ljson::null_type)
 	{
-		struct value new_value(ljson::null);
+		class value new_value(ljson::null);
 
 		this->set(new_value);
 
@@ -2370,13 +2370,13 @@ namespace ljson {
 
 	void node::dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf, int indent) const
 	{
-		using node_or_value = std::variant<std::shared_ptr<struct value>, ljson::node>;
+		using node_or_value = std::variant<std::shared_ptr<class value>, ljson::node>;
 
 		auto dump_val = [&indent, &out_func, &indent_conf](const node_or_value& value_or_nclass)
 		{
-			if (std::holds_alternative<std::shared_ptr<struct value>>(value_or_nclass))
+			if (std::holds_alternative<std::shared_ptr<class value>>(value_or_nclass))
 			{
-				auto val = std::get<std::shared_ptr<struct value>>(value_or_nclass);
+				auto val = std::get<std::shared_ptr<class value>>(value_or_nclass);
 				assert(val != nullptr);
 				if (val->type() == ljson::value_type::string)
 					out_func(std::format("\"{}\"", val->stringify()));
