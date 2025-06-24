@@ -47,6 +47,30 @@ int main() {
 }
 
 ```
+### exception free parsing
+```cpp
+#include <ljson.hpp>
+#include <print>
+
+int main() {
+	std::filesystem::path path_to_file = "meow";
+	ljson::parser parser;
+	ljson::expected<ljson::node, ljson::error> node = parser.try_parse(path_to_file);
+	if (not node)
+	{
+		// handle error
+		std::println("{}", node.error().message());
+	}
+	else
+	{
+		// parsed successfully
+	}
+  
+}
+
+```
+
+
 ### accessing and changing/setting values
 
 ```cpp
@@ -145,7 +169,7 @@ int main() {
 			for (ljson::node& element : *array) {
 				if (element.is_value()) {
 					std::println("array element: {}, type name: {}",
-						element->as_value().value, element->as_value().type_name());
+						element->as_value().stringify(), element->as_value().type_name());
 				}
 			}
 		}
@@ -179,7 +203,7 @@ int main() {
 			for (auto& [key, node] : *object) {
 				if (node.is_value()) {
 					std::println("object key: {} element: {}, type name: {}", key
-						node->as_value().value, node->as_value().type_name());
+						node->as_value().stringify(), node->as_value().type_name());
 				}
 			}
 		}
