@@ -24,6 +24,7 @@
 #include <cassert>
 #include <source_location>
 #include <type_traits>
+#include <new>
 
 namespace ljson {
 
@@ -32,20 +33,27 @@ namespace ljson {
 	template<class T = monostate, class E = monostate>
 	class expected {
 		private:
-			bool		   _has_value = false;
-			std::variant<T, E> _value_or_error;
+			bool _has_value = false;
+
+			union {
+					T _value;
+					E _error;
+			};
 
 		public:
-			expected(const T& t) : _has_value(true), _value_or_error(t)
+			expected(const T& t) : _has_value(true)
 			{
+				new (std::addressof(_value)) T(t);
 			}
 
-			expected(const E& e) : _has_value(false), _value_or_error(e)
+			expected(const E& e) : _has_value(false)
 			{
+				new (std::addressof(_error)) E(e);
 			}
 
-			expected() : _has_value(true), _value_or_error(T())
+			expected() : _has_value(true)
 			{
+				new (std::addressof(_value)) T();
 			}
 
 			expected& operator=(const expected& other)
@@ -53,8 +61,7 @@ namespace ljson {
 				if (this != &other)
 				{
 					this->~expected();
-					_has_value	= other._has_value;
-					_value_or_error = other._value_or_error;
+					new (this) expected(other);
 				}
 
 				return *this;
@@ -67,11 +74,11 @@ namespace ljson {
 				{
 					if constexpr (std::is_same_v<U, monostate>)
 					{
-						_value_or_error = T();
+						new (std::addressof(_value)) T();
 					}
 					else if constexpr (std::is_same_v<U, T>)
 					{
-						_value_or_error = other.value();
+						new (std::addressof(_value)) T(other.value());
 					}
 					else
 					{
@@ -81,21 +88,24 @@ namespace ljson {
 				}
 				else
 				{
-					_value_or_error = other.error();
+					new (std::addressof(_error)) E(other.error());
 				}
 			}
 
-			expected(const expected&& other) noexcept
-			    : _has_value(other._has_value), _value_or_error(std::move(other._value_or_error))
+			expected(const expected&& other) noexcept : _has_value(other._has_value)
 			{
+				if (this->has_value())
+					new (std::addressof(_value)) T(std::move(other._value));
+				else
+					new (std::addressof(_error)) E(std::move(other._error));
 			}
 
 			expected& operator=(const expected&& other) noexcept
 			{
 				if (this != &other)
 				{
-					this->_has_value      = other._has_value;
-					this->_value_or_error = std::move(other._value_or_error);
+					this->~expected();
+					new (this) expected(std::move(other));
 				}
 
 				return *this;
@@ -103,6 +113,10 @@ namespace ljson {
 
 			~expected()
 			{
+				if (this->has_value())
+					_value.~T();
+				else
+					_error.~E();
 			}
 
 			bool has_value() const noexcept
@@ -121,7 +135,7 @@ namespace ljson {
 				{
 					throw std::runtime_error("Attempted to access the value of a error state");
 				}
-				return std::get<T>(_value_or_error);
+				return _value;
 			}
 
 			constexpr const E& error() const&
@@ -130,7 +144,7 @@ namespace ljson {
 				{
 					throw std::runtime_error("Attempted to access the error of a value state");
 				}
-				return std::get<E>(_value_or_error);
+				return _error;
 			}
 
 			constexpr T& value() &
@@ -139,7 +153,7 @@ namespace ljson {
 				{
 					throw std::runtime_error("Attempted to access the value of a error state");
 				}
-				return std::get<T>(_value_or_error);
+				return _value;
 			}
 
 			constexpr E& error() &
@@ -148,7 +162,7 @@ namespace ljson {
 				{
 					throw std::runtime_error("Attempted to access the error of a value state");
 				}
-				return std::get<E>(_value_or_error);
+				return _error;
 			}
 
 			constexpr const T&& value() const&&
@@ -157,7 +171,7 @@ namespace ljson {
 				{
 					throw std::runtime_error("Attempted to access the value of a error state");
 				}
-				return std::get<T>(_value_or_error);
+				return std::move(_value);
 			}
 
 			constexpr const E&& error() const&&
@@ -166,7 +180,7 @@ namespace ljson {
 				{
 					throw std::runtime_error("Attempted to access the error of a value state");
 				}
-				return std::get<E>(_value_or_error);
+				return std::move(_error);
 			}
 
 			constexpr T&& value() &&
@@ -175,7 +189,7 @@ namespace ljson {
 				{
 					throw std::runtime_error("Attempted to access the value of a error state");
 				}
-				return std::get<T>(_value_or_error);
+				return std::move(_value);
 			}
 
 			constexpr E&& error() &&
@@ -184,7 +198,7 @@ namespace ljson {
 				{
 					throw std::runtime_error("Attempted to access the error of a value state");
 				}
-				return std::get<E>(_value_or_error);
+				return std::move(_error);
 			}
 
 			template<class U = std::remove_cv_t<T>>
@@ -192,7 +206,7 @@ namespace ljson {
 			{
 				static_assert(std::is_convertible_v<U, T>);
 				if (_has_value)
-					return std::get<T>(_value_or_error);
+					return _value;
 				else
 					return static_cast<T>(std::forward<U>(other));
 			}
@@ -202,7 +216,7 @@ namespace ljson {
 			{
 				static_assert(std::is_convertible_v<U, E>);
 				if (not _has_value)
-					return std::get<E>(_value_or_error);
+					return _error;
 				else
 					return static_cast<E>(std::forward<U>(other));
 			}
