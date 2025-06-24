@@ -92,6 +92,18 @@ namespace ljson {
 				}
 			}
 
+			expected(const expected& other) : _has_value(other.has_value())
+			{
+				if (_has_value)
+				{
+					new (std::addressof(_value)) T(other.value());
+				}
+				else
+				{
+					new (std::addressof(_error)) E(other.error());
+				}
+			}
+
 			expected(const expected&& other) noexcept : _has_value(other._has_value)
 			{
 				if (this->has_value())
@@ -211,7 +223,7 @@ namespace ljson {
 					return static_cast<T>(std::forward<U>(other));
 			}
 
-			template<class U = std::remove_cv_t<T>>
+			template<class U = std::remove_cv_t<E>>
 			constexpr E error_or(U&& other) const&
 			{
 				static_assert(std::is_convertible_v<U, E>);
