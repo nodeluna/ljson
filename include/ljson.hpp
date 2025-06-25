@@ -830,6 +830,12 @@ namespace ljson {
 			bool			     is_value() const noexcept;
 			bool			     is_array() const noexcept;
 			bool			     is_object() const noexcept;
+			bool			     is_string() const noexcept;
+			bool			     is_integer() const noexcept;
+			bool			     is_double() const noexcept;
+			bool			     is_number() const noexcept;
+			bool			     is_boolean() const noexcept;
+			bool			     is_null() const noexcept;
 			node_type		     type() const noexcept;
 			std::string		     type_name() const noexcept;
 			value_type		     valuetype() const noexcept;
@@ -1022,7 +1028,7 @@ namespace ljson {
 
 	class parser {
 		private:
-			static bool			   done_or_not_ok(const expected<bool, error>& ok);
+			static bool			  done_or_not_ok(const expected<bool, error>& ok);
 			static expected<monostate, error> return_error_if_not_ok(const expected<bool, error>& ok);
 			static expected<monostate, error> check_unhandled_hierarchy(const std::string& raw_json, struct parsing_data& data);
 			static expected<monostate, error> parsing(struct parsing_data& data);
@@ -1030,9 +1036,9 @@ namespace ljson {
 		public:
 			explicit parser();
 			~parser();
-			static ljson::node		     parse(const std::filesystem::path& path);
-			static ljson::node		     parse(const std::string& raw_json);
-			static ljson::node		     parse(const char* raw_json);
+			static ljson::node		    parse(const std::filesystem::path& path);
+			static ljson::node		    parse(const std::string& raw_json);
+			static ljson::node		    parse(const char* raw_json);
 			static expected<ljson::node, error> try_parse(const std::filesystem::path& path) noexcept;
 			static expected<ljson::node, error> try_parse(const std::string& raw_json) noexcept;
 			static expected<ljson::node, error> try_parse(const char* raw_json) noexcept;
@@ -2238,6 +2244,36 @@ namespace ljson {
 			return false;
 	}
 
+	bool node::is_string() const noexcept
+	{
+		return not this->is_value() ? false : this->as_value()->is_string();
+	}
+
+	bool node::is_integer() const noexcept
+	{
+		return not this->is_value() ? false : this->as_value()->is_integer();
+	}
+
+	bool node::is_double() const noexcept
+	{
+		return not this->is_value() ? false : this->as_value()->is_double();
+	}
+
+	bool node::is_number() const noexcept
+	{
+		return not this->is_value() ? false : this->as_value()->is_number();
+	}
+
+	bool node::is_boolean() const noexcept
+	{
+		return not this->is_value() ? false : this->as_value()->is_boolean();
+	}
+
+	bool node::is_null() const noexcept
+	{
+		return not this->is_value() ? false : this->as_value()->is_null();
+	}
+
 	node_type node::type() const noexcept
 	{
 		if (this->is_value())
@@ -2272,8 +2308,8 @@ namespace ljson {
 
 	expected<std::string, error> node::try_as_string() const noexcept
 	{
-		auto cast_func = [](std::shared_ptr<class ljson::value> val) -> expected<std::string, error> { return val->try_as_string(); };
-		return this->access_value<std::string>(cast_func);
+		auto cast_fn = [](std::shared_ptr<class ljson::value> val) -> expected<std::string, error> { return val->try_as_string(); };
+		return this->access_value<std::string>(cast_fn);
 	}
 
 	expected<int64_t, error> node::try_as_integer() const noexcept

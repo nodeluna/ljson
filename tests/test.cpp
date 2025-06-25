@@ -41,13 +41,16 @@ TEST_F(ljson_test, parsing_simple_json)
 		EXPECT_TRUE(result.at("smol").is_value());
 
 		EXPECT_TRUE(result.at("name").as_value()->is_string());
+		EXPECT_TRUE(result.at("name").is_string());
 		EXPECT_EQ(result.at("name").as_value()->as_string(), "cat");
 
 		EXPECT_TRUE(result.at("age").as_value()->is_integer());
+		EXPECT_TRUE(result.at("age").is_integer());
 		EXPECT_EQ(result.at("age").as_value()->as_integer(), 5);
 		EXPECT_EQ(result.at("age").as_integer(), 5);
 
 		EXPECT_TRUE(result.at("smol").as_value()->is_boolean());
+		EXPECT_TRUE(result.at("smol").is_boolean());
 		EXPECT_EQ(result.at("smol").as_value()->as_boolean(), true);
 		EXPECT_TRUE(result.at("smol").as_value()->try_as_boolean());
 		EXPECT_TRUE(not result.at("smol").as_value()->try_as_number());
@@ -194,6 +197,7 @@ TEST_F(ljson_test, construct_from_initializer_list)
 
 	EXPECT_TRUE(node.at("key4").is_value());
 	EXPECT_TRUE(node.at("key4").as_value()->is_null());
+	EXPECT_TRUE(node.at("key4").is_null());
 	EXPECT_EQ(node.at("key4").as_value()->as_null(), ljson::null);
 
 	EXPECT_TRUE(node.at("key5").is_array());
@@ -232,6 +236,9 @@ TEST_F(ljson_test, construct_from_initializer_list_from_array)
 
 	EXPECT_TRUE(node.as_array()->at(0).is_value());
 	EXPECT_TRUE(node.as_array()->at(0).as_value()->is_double());
+	EXPECT_TRUE(node.as_array()->at(0).as_value()->is_number());
+	EXPECT_TRUE(node.as_array()->at(0).is_double());
+	EXPECT_TRUE(node.as_array()->at(0).is_number());
 	EXPECT_EQ(node.as_array()->at(0).as_value()->as_double(), 1.3223);
 	EXPECT_EQ(node.as_array()->at(0).as_value()->as_number(), 1.3223);
 	EXPECT_EQ(node.as_array()->at(0).as_double(), 1.3223);
