@@ -1022,20 +1022,20 @@ namespace ljson {
 
 	class parser {
 		private:
-			bool			   done_or_not_ok(const expected<bool, error>& ok);
-			expected<monostate, error> return_error_if_not_ok(const expected<bool, error>& ok);
-			expected<monostate, error> check_unhandled_hierarchy(const std::string& raw_json, struct parsing_data& data);
-			expected<monostate, error> parsing(struct parsing_data& data);
+			static bool			   done_or_not_ok(const expected<bool, error>& ok);
+			static expected<monostate, error> return_error_if_not_ok(const expected<bool, error>& ok);
+			static expected<monostate, error> check_unhandled_hierarchy(const std::string& raw_json, struct parsing_data& data);
+			static expected<monostate, error> parsing(struct parsing_data& data);
 
 		public:
 			explicit parser();
 			~parser();
-			ljson::node		     parse(const std::filesystem::path& path);
-			ljson::node		     parse(const std::string& raw_json);
-			ljson::node		     parse(const char* raw_json);
-			expected<ljson::node, error> try_parse(const std::filesystem::path& path) noexcept;
-			expected<ljson::node, error> try_parse(const std::string& raw_json) noexcept;
-			expected<ljson::node, error> try_parse(const char* raw_json) noexcept;
+			static ljson::node		     parse(const std::filesystem::path& path);
+			static ljson::node		     parse(const std::string& raw_json);
+			static ljson::node		     parse(const char* raw_json);
+			static expected<ljson::node, error> try_parse(const std::filesystem::path& path) noexcept;
+			static expected<ljson::node, error> try_parse(const std::string& raw_json) noexcept;
+			static expected<ljson::node, error> try_parse(const char* raw_json) noexcept;
 	};
 }
 
@@ -2848,7 +2848,7 @@ namespace ljson {
 
 	ljson::node parser::parse(const std::filesystem::path& path)
 	{
-		expected<ljson::node, error> ok = this->try_parse(path);
+		expected<ljson::node, error> ok = ljson::parser::try_parse(path);
 		if (not ok)
 			throw ok.error();
 
@@ -2857,7 +2857,7 @@ namespace ljson {
 
 	ljson::node parser::parse(const char* raw_json)
 	{
-		expected<ljson::node, error> ok = this->try_parse(raw_json);
+		expected<ljson::node, error> ok = ljson::parser::try_parse(raw_json);
 		if (not ok)
 			throw ok.error();
 
@@ -2866,7 +2866,7 @@ namespace ljson {
 
 	ljson::node parser::parse(const std::string& raw_json)
 	{
-		expected<ljson::node, error> ok = this->try_parse(raw_json);
+		expected<ljson::node, error> ok = ljson::parser::try_parse(raw_json);
 		if (not ok)
 			throw ok.error();
 
@@ -2893,7 +2893,7 @@ namespace ljson {
 			data.line += "\n";
 			for (data.i = 0; data.i < data.line.size(); data.i++)
 			{
-				ok = this->parsing(data);
+				ok = ljson::parser::parsing(data);
 				if (not ok)
 					return unexpected(ok.error());
 			}
@@ -2904,7 +2904,7 @@ namespace ljson {
 			data.line_number++;
 		}
 
-		ok = this->check_unhandled_hierarchy(data.line, data);
+		ok = ljson::parser::check_unhandled_hierarchy(data.line, data);
 		if (not ok)
 			return unexpected(ok.error());
 
@@ -2931,7 +2931,7 @@ namespace ljson {
 
 				for (data.i = 0; data.i < data.line.size(); data.i++)
 				{
-					ok = this->parsing(data);
+					ok = ljson::parser::parsing(data);
 					if (not ok)
 						return unexpected(ok.error());
 				}
@@ -2941,7 +2941,7 @@ namespace ljson {
 			}
 		}
 
-		ok = this->check_unhandled_hierarchy(raw_json, data);
+		ok = ljson::parser::check_unhandled_hierarchy(raw_json, data);
 		if (not ok)
 			return unexpected(ok.error());
 
@@ -2952,7 +2952,7 @@ namespace ljson {
 	{
 		assert(raw_json != NULL);
 		std::string string_json(raw_json);
-		return this->try_parse(string_json);
+		return ljson::parser::try_parse(string_json);
 	}
 
 	parser::~parser()

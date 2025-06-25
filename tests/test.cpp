@@ -29,11 +29,10 @@ class ljson_test : public ::testing::Test {
 TEST_F(ljson_test, parsing_simple_json)
 {
 	std::string   raw_json = R"""({"name": "cat", "age": 5, "smol": true})""";
-	ljson::parser parser;
 
 	try
 	{
-		ljson::node result = parser.parse(raw_json);
+		ljson::node result = ljson::parser::parse(raw_json);
 		
 		EXPECT_TRUE(result.is_object());
 
