@@ -7,6 +7,7 @@
 #pragma once
 
 #include <any>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <initializer_list>
@@ -424,35 +425,33 @@ namespace ljson {
 			expected<monostate, error> set_state(const std::string& val, value_type t)
 			{
 				_type = t;
-				if (t == value_type::double_t)
+				switch (t)
 				{
-					_value = std::stod(val);
-				}
-				else if (t == value_type::integer)
-				{
-					_value = std::stoll(val);
-				}
-				else if (t == value_type::string)
-				{
-					_value = val;
-				}
-				else if (t == value_type::boolean)
-				{
-					_value = (val == "true" ? true : false);
-				}
-				else if (t == value_type::null)
-				{
-					_value = null_type();
-				}
-				else if (t == value_type::none)
-				{
-					_value = monostate();
-				}
-				else
-				{
-					_type  = value_type::none;
-					_value = monostate();
-					return unexpected(error(error_type::wrong_type, "unsupported value_type in class value"));
+					case value_type::double_t:
+					case value_type::number:
+						_value = std::stod(val);
+						break;
+					case value_type::integer:
+						_value = std::stoll(val);
+						break;
+					case value_type::string:
+						_value = val;
+						break;
+					case value_type::boolean:
+						_value = (val == "true" ? true : false);
+						break;
+					case value_type::null:
+						_value = null_type();
+						break;
+					case value_type::none:
+						_value = monostate();
+						break;
+					case value_type::unknown:
+					case value_type::temp_escape_type:
+					default:
+						_type  = value_type::none;
+						_value = monostate();
+						return unexpected(error(error_type::wrong_type, "unsupported value_type in class value"));
 				}
 
 				return monostate();
@@ -559,7 +558,7 @@ namespace ljson {
 					    "wrong type: trying to cast the value '{}' which is a '{}' to 'number'", this->stringify(),
 					    this->type_name()));
 
-				if (not this->is_double())
+				if (this->is_double())
 					return std::get<double>(_value);
 				else
 					return std::get<int64_t>(_value);
@@ -806,16 +805,39 @@ namespace ljson {
 			template<typename node_type_concept>
 			expected<class ljson::node, error> push_back(const node_type_concept& node);
 
-			std::shared_ptr<class value>   as_value() const;
-			std::shared_ptr<ljson::array>  as_array() const;
-			std::shared_ptr<ljson::object> as_object() const;
-			bool			       is_value() const;
-			bool			       is_array() const;
-			bool			       is_object() const;
-			node_type		       type() const;
-			bool			       contains(const std::string& key) const;
-			class node&		       at(const std::string& object_key) const;
-			class node&		       at(const size_t array_index) const;
+			expected<std::shared_ptr<class value>, error>	try_as_value() const noexcept;
+			expected<std::shared_ptr<ljson::array>, error>	try_as_array() const noexcept;
+			expected<std::shared_ptr<ljson::object>, error> try_as_object() const noexcept;
+			std::shared_ptr<class value>			as_value() const;
+			std::shared_ptr<ljson::array>			as_array() const;
+			std::shared_ptr<ljson::object>			as_object() const;
+
+			template<is_allowed_value_type T>
+			expected<T, error> access_value(std::function<expected<T, error>(std::shared_ptr<class value>)> fun) const;
+
+			expected<std::string, error> try_as_string() const noexcept;
+			expected<int64_t, error>     try_as_integer() const noexcept;
+			expected<double, error>	     try_as_double() const noexcept;
+			expected<double, error>	     try_as_number() const noexcept;
+			expected<bool, error>	     try_as_boolean() const noexcept;
+			expected<null_type, error>   try_as_null() const noexcept;
+			std::string		     as_string() const;
+			int64_t			     as_integer() const;
+			double			     as_double() const;
+			double			     as_number() const;
+			bool			     as_boolean() const;
+			null_type		     as_null() const;
+			bool			     is_value() const noexcept;
+			bool			     is_array() const noexcept;
+			bool			     is_object() const noexcept;
+			node_type		     type() const noexcept;
+			std::string		     type_name() const noexcept;
+			value_type		     valuetype() const noexcept;
+			std::string		     value_type_name() const noexcept;
+			std::string		     stringify() const noexcept;
+			bool			     contains(const std::string& key) const noexcept;
+			class node&		     at(const std::string& object_key) const;
+			class node&		     at(const size_t array_index) const;
 
 			template<typename number_type>
 			class node& operator=(const number_type& val);
@@ -833,19 +855,19 @@ namespace ljson {
 			class node  operator+(const node& other_node);
 
 			template<typename number_type>
-			expected<monostate, error> set(const number_type value);
-			expected<monostate, error> set(const class value& value);
-			expected<monostate, error> set(const std::string& value);
-			expected<monostate, error> set(const bool value);
-			expected<monostate, error> set(const ljson::null_type value);
-			expected<monostate, error> set(const char* value);
+			expected<monostate, error> set(const number_type value) noexcept;
+			expected<monostate, error> set(const class value& value) noexcept;
+			expected<monostate, error> set(const std::string& value) noexcept;
+			expected<monostate, error> set(const bool value) noexcept;
+			expected<monostate, error> set(const ljson::null_type value) noexcept;
+			expected<monostate, error> set(const char* value) noexcept;
 
 			void dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf = {' ', 4},
 			    int indent = 0) const;
-			void dump_to_stdout(const std::pair<char, int>& indent_conf = {' ', 4});
-			std::string		   dump_to_string(const std::pair<char, int>& indent_conf = {' ', 4});
+			void dump_to_stdout(const std::pair<char, int>& indent_conf = {' ', 4}) const;
+			std::string		   dump_to_string(const std::pair<char, int>& indent_conf = {' ', 4}) const;
 			expected<monostate, error> write_to_file(
-			    const std::filesystem::path& path, const std::pair<char, int>& indent_conf = {' ', 4});
+			    const std::filesystem::path& path, const std::pair<char, int>& indent_conf = {' ', 4}) const;
 
 			expected<class ljson::node, error> add_value_to_key(const std::string& key, const class value& value);
 			expected<class ljson::node, error> add_node_to_key(const std::string& key, const ljson::node& node);
@@ -1751,6 +1773,8 @@ namespace ljson {
 								    "expected [string value, quote] but found '{}'", data.line[data.i]);
 							case json_syntax::closing_bracket:
 								return std::format("expected 'EOF' but found '{}'", data.line[data.i]);
+							case json_syntax::flush_value:
+							case json_syntax::maybe_empty_space_after:
 							default:
 								return std::format("unexpected syntax: found '{}'", data.line[data.i]);
 						}
@@ -1768,12 +1792,18 @@ namespace ljson {
 
 	node::node(enum node_type type)
 	{
-		if (type == node_type::value)
-			_node = std::make_shared<class value>();
-		else if (type == node_type::array)
-			_node = std::make_shared<ljson::array>();
-		else
-			_node = std::make_shared<ljson::object>();
+		switch (type)
+		{
+			case node_type::value:
+				_node = std::make_shared<class value>();
+				break;
+			case node_type::array:
+				_node = std::make_shared<ljson::array>();
+				break;
+			case ljson::node_type::object:
+				_node = std::make_shared<ljson::object>();
+				break;
+		}
 	}
 
 	template<typename container_type_concept>
@@ -2130,31 +2160,61 @@ namespace ljson {
 		return (*arr)[index];
 	}
 
-	std::shared_ptr<class value> node::as_value() const
+	expected<std::shared_ptr<class value>, error> node::try_as_value() const noexcept
 	{
 		if (not this->is_value())
-			throw error(error_type::wrong_type, "wrong type: trying to cast a non-value node to a value");
+			return unexpected(
+			    error(error_type::wrong_type, "wrong type: trying to cast a '{}' node to a value", this->type_name()));
 
 		return std::get<std::shared_ptr<class value>>(_node);
 	}
 
-	std::shared_ptr<ljson::array> node::as_array() const
+	expected<std::shared_ptr<ljson::array>, error> node::try_as_array() const noexcept
 	{
 		if (not this->is_array())
-			throw error(error_type::wrong_type, "wrong type: trying to cast a non-array node to an array");
+			return unexpected(
+			    error(error_type::wrong_type, "wrong type: trying to cast a '{} node to an array", this->type_name()));
 
 		return std::get<std::shared_ptr<ljson::array>>(_node);
 	}
 
-	std::shared_ptr<ljson::object> node::as_object() const
+	expected<std::shared_ptr<ljson::object>, error> node::try_as_object() const noexcept
 	{
 		if (not this->is_object())
-			throw error(error_type::wrong_type, "wrong type: trying to cast a non-object node to an object");
+			return unexpected(
+			    error(error_type::wrong_type, "wrong type: trying to cast a '{}' node to an object", this->type_name()));
 
 		return std::get<std::shared_ptr<ljson::object>>(_node);
 	}
 
-	bool node::is_value() const
+	std::shared_ptr<class value> node::as_value() const
+	{
+		auto ok = this->try_as_value();
+		if (not ok)
+			throw ok.error();
+
+		return ok.value();
+	}
+
+	std::shared_ptr<ljson::array> node::as_array() const
+	{
+		auto ok = this->try_as_array();
+		if (not ok)
+			throw ok.error();
+
+		return ok.value();
+	}
+
+	std::shared_ptr<ljson::object> node::as_object() const
+	{
+		auto ok = this->try_as_object();
+		if (not ok)
+			throw ok.error();
+
+		return ok.value();
+	}
+
+	bool node::is_value() const noexcept
 	{
 		if (std::holds_alternative<std::shared_ptr<class value>>(_node))
 			return true;
@@ -2162,7 +2222,7 @@ namespace ljson {
 			return false;
 	}
 
-	bool node::is_array() const
+	bool node::is_array() const noexcept
 	{
 		if (std::holds_alternative<std::shared_ptr<ljson::array>>(_node))
 			return true;
@@ -2170,7 +2230,7 @@ namespace ljson {
 			return false;
 	}
 
-	bool node::is_object() const
+	bool node::is_object() const noexcept
 	{
 		if (std::holds_alternative<std::shared_ptr<ljson::object>>(_node))
 			return true;
@@ -2178,7 +2238,7 @@ namespace ljson {
 			return false;
 	}
 
-	node_type node::type() const
+	node_type node::type() const noexcept
 	{
 		if (this->is_value())
 			return node_type::value;
@@ -2188,15 +2248,142 @@ namespace ljson {
 			return node_type::object;
 	}
 
-	bool node::contains(const std::string& key) const
+	std::string node::type_name() const noexcept
 	{
-		if (not this->is_object())
+		if (this->is_value())
+			return "node value";
+		else if (this->is_array())
+			return "node array";
+		else
+			return "node object";
+	}
+
+	template<is_allowed_value_type T>
+	expected<T, error> node::access_value(std::function<expected<T, error>(std::shared_ptr<class value>)> fun) const
+	{
+		auto val = this->try_as_value();
+		if (not val)
+		{
+			return val.error();
+		}
+
+		return fun(val.value());
+	}
+
+	expected<std::string, error> node::try_as_string() const noexcept
+	{
+		auto cast_func = [](std::shared_ptr<class ljson::value> val) -> expected<std::string, error> { return val->try_as_string(); };
+		return this->access_value<std::string>(cast_func);
+	}
+
+	expected<int64_t, error> node::try_as_integer() const noexcept
+	{
+		auto cast_func = [](std::shared_ptr<class ljson::value> val) -> expected<int64_t, error> { return val->try_as_integer(); };
+		return this->access_value<int64_t>(cast_func);
+	}
+
+	expected<double, error> node::try_as_double() const noexcept
+	{
+		auto cast_func = [](std::shared_ptr<class ljson::value> val) -> expected<double, error> { return val->try_as_double(); };
+		return this->access_value<double>(cast_func);
+	}
+
+	expected<double, error> node::try_as_number() const noexcept
+	{
+		auto cast_func = [](std::shared_ptr<class ljson::value> val) -> expected<double, error> { return val->try_as_number(); };
+		return this->access_value<double>(cast_func);
+	}
+
+	expected<bool, error> node::try_as_boolean() const noexcept
+	{
+		auto cast_func = [](std::shared_ptr<class ljson::value> val) -> expected<bool, error> { return val->try_as_boolean(); };
+		return this->access_value<bool>(cast_func);
+	}
+
+	expected<null_type, error> node::try_as_null() const noexcept
+	{
+		auto cast_func = [](std::shared_ptr<class ljson::value> val) -> expected<null_type, error> { return val->try_as_null(); };
+		return this->access_value<null_type>(cast_func);
+	}
+
+	std::string node::as_string() const
+	{
+		auto ok = this->try_as_string();
+		if (not ok)
+			throw ok.error();
+		return ok.value();
+	}
+
+	int64_t node::as_integer() const
+	{
+		auto ok = this->try_as_integer();
+		if (not ok)
+			throw ok.error();
+		return ok.value();
+	}
+
+	double node::as_double() const
+	{
+		auto ok = this->try_as_double();
+		if (not ok)
+			throw ok.error();
+		return ok.value();
+	}
+
+	double node::as_number() const
+	{
+		auto ok = this->try_as_number();
+		if (not ok)
+			throw ok.error();
+		return ok.value();
+	}
+
+	bool node::as_boolean() const
+	{
+		auto ok = this->try_as_boolean();
+		if (not ok)
+			throw ok.error();
+		return ok.value();
+	}
+
+	null_type node::as_null() const
+	{
+		auto ok = this->try_as_null();
+		if (not ok)
+			throw ok.error();
+		return ok.value();
+	}
+
+	value_type node::valuetype() const noexcept
+	{
+		if (not this->is_value())
+			return value_type::none;
+		return this->as_value()->type();
+	}
+
+	std::string node::value_type_name() const noexcept
+	{
+		if (not this->is_value())
+			return "none";
+		return this->as_value()->type_name();
+	}
+
+	std::string node::stringify() const noexcept
+	{
+		if (this->is_value())
+			return this->as_value()->stringify();
+		else
+			return this->dump_to_string();
+	}
+
+	bool node::contains(const std::string& key) const noexcept
+	{
+		auto obj = this->try_as_object();
+		if (not obj)
 			return false;
+		auto itr = obj.value()->find(key);
 
-		auto obj = this->as_object();
-		auto itr = obj->find(key);
-
-		if (itr != obj->end())
+		if (itr != obj.value()->end())
 			return true;
 		else
 			return false;
@@ -2215,7 +2402,7 @@ namespace ljson {
 	{
 		auto arr = this->as_array();
 		if (array_index >= arr->size())
-			throw error(error_type::key_not_found, std::format("index: '{}' not found", array_index));
+			throw error(error_type::key_not_found, "index: '{}' not found", array_index);
 
 		return arr->at(array_index);
 	}
@@ -2410,19 +2597,18 @@ namespace ljson {
 		}
 	}
 
-	expected<monostate, error> node::set(const class value& value)
+	expected<monostate, error> node::set(const class value& value) noexcept
 	{
-		if (not this->is_value())
-			return unexpected(error(error_type::wrong_type, "wrong type: can't set value to non-value node-class"));
+		auto val = this->try_as_value();
+		if (not val)
+			return unexpected(val.error());
 
-		auto val = this->as_value();
-
-		*val = value;
+		*val.value() = value;
 
 		return monostate();
 	}
 
-	expected<monostate, error> node::set(const std::string& value)
+	expected<monostate, error> node::set(const std::string& value) noexcept
 	{
 		class value new_value(value);
 
@@ -2432,7 +2618,7 @@ namespace ljson {
 	}
 
 	template<typename number_type>
-	expected<monostate, error> node::set(const number_type value)
+	expected<monostate, error> node::set(const number_type value) noexcept
 	{
 		static_assert(std::is_arithmetic_v<number_type>, "Template paramenter must be a numeric type");
 		class value new_value(value);
@@ -2441,7 +2627,7 @@ namespace ljson {
 		return monostate();
 	}
 
-	expected<monostate, error> node::set(const bool value)
+	expected<monostate, error> node::set(const bool value) noexcept
 	{
 		class value new_value(value);
 
@@ -2450,14 +2636,14 @@ namespace ljson {
 		return monostate();
 	}
 
-	expected<monostate, error> node::set(const char* value)
+	expected<monostate, error> node::set(const char* value) noexcept
 	{
 		std::string str = value;
 		this->set(str);
 		return monostate();
 	}
 
-	expected<monostate, error> node::set(const ljson::null_type)
+	expected<monostate, error> node::set(const ljson::null_type) noexcept
 	{
 		class value new_value(ljson::null);
 
@@ -2529,13 +2715,13 @@ namespace ljson {
 		}
 	}
 
-	void node::dump_to_stdout(const std::pair<char, int>& indent_conf)
+	void node::dump_to_stdout(const std::pair<char, int>& indent_conf) const
 	{
 		auto func = [](const std::string& output) { std::cout << output; };
 		this->dump(func, indent_conf);
 	}
 
-	std::string node::dump_to_string(const std::pair<char, int>& indent_conf)
+	std::string node::dump_to_string(const std::pair<char, int>& indent_conf) const
 	{
 		std::string data;
 		auto	    func = [&data](const std::string& output) { data += output; };
@@ -2544,7 +2730,7 @@ namespace ljson {
 		return data;
 	}
 
-	expected<monostate, error> node::write_to_file(const std::filesystem::path& path, const std::pair<char, int>& indent_conf)
+	expected<monostate, error> node::write_to_file(const std::filesystem::path& path, const std::pair<char, int>& indent_conf) const
 	{
 		std::ofstream file(path);
 		if (not file.is_open())
