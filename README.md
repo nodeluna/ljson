@@ -134,7 +134,7 @@ int main() {
 		}
 		new_node.set(true);
 		new_node.set(12);
-		new_node.set(ljson::null_value()); // set its value to 'null'
+		new_node.set(ljson::null); // set its value to 'null'
 
 		node.write_to_file("new_file.json"); // write the new changes
 
