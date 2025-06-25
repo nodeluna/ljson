@@ -29,10 +29,9 @@ check out the example at test/import_ljson/ to see how to use the library as a m
 
 int main() {
 	std::filesystem::path path_to_file = "meow";
-	ljson::parser parser;
 
 	try {
-		ljson::node node = parser.parse(path_to_file);
+		ljson::node node = ljson::parser::parse(path_to_file);
 		std::pair<char, int> indent_config = {'\t', 2}; // you can specifiy tab/space here and it's count
 		node.dump_to_stdout(indent_config);
 		node.dump_to_stdout(); // not specifiying defaults to {' ', 4}
@@ -54,8 +53,7 @@ int main() {
 
 int main() {
 	std::filesystem::path path_to_file = "meow";
-	ljson::parser parser;
-	ljson::expected<ljson::node, ljson::error> node = parser.try_parse(path_to_file);
+	ljson::expected<ljson::node, ljson::error> node = ljson::parser::try_parse(path_to_file);
 	if (not node)
 	{
 		// handle error
@@ -80,7 +78,6 @@ int main() {
 
 int main() {
 	std::filesystem::path path_to_file = "meow";
-	ljson::parser parser;
 
 	// making a json object
 	ljson::node j2 = {
@@ -100,7 +97,7 @@ int main() {
 	};
 
 	try {
-		ljson::node node = parser.parse();
+		ljson::node node = ljson::parser::parse(path_to_file);
 
 		// this function adds an object to a key
 		node.insert("new_object", j2);
@@ -157,7 +154,6 @@ int main() {
 
 int main() {
 	std::filesystem::path path_to_file = "meow";
-	ljson::parser parser;
 
 	try {
 		// parse the file
@@ -191,7 +187,6 @@ int main() {
 
 int main() {
 	std::filesystem::path path_to_file = "meow";
-	ljson::parser parser;
 
 	try {
 		// parse the file
@@ -225,7 +220,6 @@ int main() {
 
 int main() {
 	std::filesystem::path path_to_file = "meow";
-	ljson::parser parser;
 
 	try {
 		// parse the file
