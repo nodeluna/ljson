@@ -1,0 +1,48 @@
+name: github-pages
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '**/*.cpp'
+      - '**/*.hpp'
+      - '**/*.md'
+  push:
+    paths:
+      - '**/*.cpp'
+      - '**/*.hpp'
+      - '**/*.md'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  github-pages:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install dependencies
+        run: |
+            sudo apt -y update
+            sudo apt -y install --no-install-recommends git doxygen
+            pip3 install --user --upgrade poxy
+
+      - name: generate docs
+        run: |
+            poxy docs/poxy.toml
+            
+      - name: setup pages
+        uses: actions/configure-pages@v5
+      
+      - name: upload artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./html/
+
+      - name: deployment
+        id: deployment
+        uses: actions/deploy-pages@v4
