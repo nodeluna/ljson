@@ -27,10 +27,21 @@
 #include <type_traits>
 #include <new>
 
+/**
+ * @brief the namespace for ljson
+ */
 namespace ljson {
 
+	/**
+	 * @struct monostate
+	 * @brief an implementation of std::monostate to allow using ljson with C++20. check the cppreference
+	 */
 	struct monostate {};
 
+	/**
+	 * @class expected
+	 * @brief an implementation of std::expected to allow using ljson with C++20. check the cppreference
+	 */
 	template<class T = monostate, class E = monostate>
 	class expected {
 		private:
@@ -235,12 +246,21 @@ namespace ljson {
 			}
 	};
 
+	/**
+	 * @brief a helper function to construct an unexpected type
+	 */
 	template<class E>
 	expected<monostate, E> unexpected(const E& e)
 	{
 		return expected<monostate, E>(e);
 	}
 
+	/**
+	 * @brief a helper function to construct an unexpected type
+	 * @detail @cpp
+	 * ljson::expected<ljson::node, std::string> node = ljson::unexpected("error");
+	 * @ecpp
+	 */
 	expected<monostate, std::string> unexpected(const char* e)
 	{
 		return unexpected<std::string>(std::string(e));
@@ -298,6 +318,10 @@ namespace ljson {
 		wronge_index,
 	};
 
+	/**
+	 * @class error
+	 * @brief a class type inspired by std::error_code to handle errors
+	 */
 	class error {
 		private:
 			error_type  err_type;
@@ -325,6 +349,14 @@ namespace ljson {
 		unknown,
 	};
 
+	/**
+	 * @enum node_type
+	 * @brief this enum can be used to explicitly make a node that's either an object, array or value
+	 * @detail @cpp
+	 * ljson::node node(ljson::node_type::array);
+	 * ljson::node node; // default is ljson::node_type::object
+	 * @ecpp
+	 */
 	enum class node_type {
 		object,
 		array,
@@ -351,6 +383,10 @@ namespace ljson {
 		array,
 	};
 
+	/**
+	 * @class null_type
+	 * @brief an empty class to represent a json null value
+	 */
 	class null_type {
 		public:
 			null_type() = default;
@@ -368,11 +404,18 @@ namespace ljson {
 
 	inline null_type null;
 
+	/**
+	  @brief puts a constraint on the allowed json types for ljson::value
+	 */
 	template<typename allowed_value_types>
 	concept is_allowed_value_type = std::is_same_v<allowed_value_types, std::string> ||
 					std::is_same_v<allowed_value_types, const char*> || std::is_arithmetic_v<allowed_value_types> ||
 					std::is_same_v<allowed_value_types, null_type> || std::is_same_v<allowed_value_types, bool>;
 
+	/**
+	 * @class value
+	 * @brief holds a json value such as <std::string, double, int64_t, bool, null_type, monostate>
+	 */
 	class value {
 		private:
 			using value_type_variant  = std::variant<std::string, double, int64_t, bool, null_type, monostate>;
@@ -749,6 +792,9 @@ namespace ljson {
 				       std::is_same_v<allowed_node_types, bool> || std::is_same_v<allowed_node_types, ljson::node> ||
 				       std::is_same_v<allowed_node_types, class value>;
 
+	/**
+	 * @brief concept for enabling ljson::node to accept std key/value containers
+	 */
 	template<typename container_type>
 	concept is_key_value_container = requires(container_type container) {
 		typename container_type::key_type;
@@ -757,6 +803,9 @@ namespace ljson {
 		{ container.end() } -> std::same_as<typename container_type::iterator>;
 	} && std::is_same_v<typename container_type::key_type, std::string> && is_allowed_node_type<typename container_type::mapped_type>;
 
+	/**
+	 * @brief concept for enabling ljson::node to accept std array-like containers
+	 */
 	template<typename container_type>
 	concept is_value_container = requires(container_type container) {
 		typename container_type::value_type;
@@ -764,9 +813,15 @@ namespace ljson {
 		{ container.end() } -> std::same_as<typename container_type::iterator>;
 	} && not is_key_value_container<container_type> && is_allowed_node_type<typename container_type::value_type>;
 
+	/**
+	 * @brief puts a constraint on the allowed std container types to be inserted into ljson::node
+	 */
 	template<typename container_type>
 	concept container_type_concept = is_key_value_container<container_type> || is_value_container<container_type>;
 
+	/**
+	 * @brief puts a constraint on the allowed types to be inserted into ljson::node
+	 */
 	template<typename value_type>
 	concept node_type_concept = container_type_concept<value_type> || is_allowed_node_type<value_type>;
 
@@ -777,6 +832,10 @@ namespace ljson {
 	using json_array  = std::vector<class node>;
 	using json_node	  = std::variant<std::shared_ptr<class value>, std::shared_ptr<ljson::array>, std::shared_ptr<ljson::object>>;
 
+	/**
+	 * @class node
+	 * @brief the class that holds a json node which is either ljson::object, ljson::array or ljson::value
+	 */
 	class node {
 		private:
 			json_node _node;
@@ -827,23 +886,55 @@ namespace ljson {
 			double			     as_number() const;
 			bool			     as_boolean() const;
 			null_type		     as_null() const;
-			bool			     is_value() const noexcept;
-			bool			     is_array() const noexcept;
-			bool			     is_object() const noexcept;
-			bool			     is_string() const noexcept;
-			bool			     is_integer() const noexcept;
-			bool			     is_double() const noexcept;
-			bool			     is_number() const noexcept;
-			bool			     is_boolean() const noexcept;
-			bool			     is_null() const noexcept;
-			node_type		     type() const noexcept;
-			std::string		     type_name() const noexcept;
-			value_type		     valuetype() const noexcept;
-			std::string		     value_type_name() const noexcept;
-			std::string		     stringify() const noexcept;
-			bool			     contains(const std::string& key) const noexcept;
-			class node&		     at(const std::string& object_key) const;
-			class node&		     at(const size_t array_index) const;
+
+			/**
+			 * @brief checks if ljson::node is holding ljson::value
+			 * @return true if it does
+			 * @detail @cpp
+			 * ljson::node node(ljson::node_type::value);
+			 * if (node.is_value())
+			 * {
+			 *	// do something
+			 * }
+			 * @ecpp
+			 */
+			bool is_value() const noexcept;
+
+			/**
+			 * @brief checks if ljson::node is holding ljson::array
+			 * @return true if it does
+			 */
+			bool is_array() const noexcept;
+
+			/**
+			 * @brief checks if ljson::node is holding ljson::object
+			 * @return true if it does
+			 */
+			bool is_object() const noexcept;
+
+			/**
+			 * @brief checks if ljson::node is holding ljson::value that is holding std::string (json string)
+			 * @return true if it does
+			 */
+			bool is_string() const noexcept;
+
+			/**
+			 * @brief checks if ljson::node is holding ljson::value that is holding int64_t (json number)
+			 * @return true if it does
+			 */
+			bool	    is_integer() const noexcept;
+			bool	    is_double() const noexcept;
+			bool	    is_number() const noexcept;
+			bool	    is_boolean() const noexcept;
+			bool	    is_null() const noexcept;
+			node_type   type() const noexcept;
+			std::string type_name() const noexcept;
+			value_type  valuetype() const noexcept;
+			std::string value_type_name() const noexcept;
+			std::string stringify() const noexcept;
+			bool	    contains(const std::string& key) const noexcept;
+			class node& at(const std::string& object_key) const;
+			class node& at(const size_t array_index) const;
 
 			template<typename number_type>
 			class node& operator=(const number_type& val);
@@ -886,6 +977,10 @@ namespace ljson {
 			expected<class ljson::node, error> add_object_to_key(const std::string& key);
 	};
 
+	/**
+	 * @class array
+	 * @brief the class that holds a json array
+	 */
 	class array {
 		private:
 			json_array _array;
@@ -960,6 +1055,10 @@ namespace ljson {
 			}
 	};
 
+	/**
+	 * @class object
+	 * @brief the class that holds a json object
+	 */
 	class object {
 		private:
 			json_object _object;

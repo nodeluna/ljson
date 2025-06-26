@@ -1,0 +1,40 @@
+# this is a config file for Poxy - a Doxygen + m.css front-end written in Python.
+# https://github.com/marzer/poxy
+#
+# config reference: https://github.com/marzer/poxy/wiki/Configuration-options
+
+name          = 'ljson'
+author        = 'nodeluna'
+description   = 'an easy to use header only JSON library for C++20'
+cpp           = 20
+github        = 'nodeluna/ljson'
+license       = ['Apache Version 2.0', 'https://github.com/nodeluna/ljson/LICENSE']
+show_includes = true
+changelog     = false
+navbar        = ['namespaces', 'annotated', 'concepts']
+theme         = 'dark'
+main_page     = true
+
+
+[warnings]
+enabled         = true
+treat_as_errors = false
+undocumented    = true
+
+[sources]
+paths    = ['../include', '../mod', '../']
+patterns = ['*.hpp', '*.cpp', '*.md']
+
+
+[autolinks]
+'node?'             = 'classljson_1_1node.html'
+'ljson?'            = 'namespaceljson.html'
+'ljson::node?'      = 'classljson_1_1node.html'
+'ljson::object?'    = 'classljson_1_1object.html'
+'ljson::array?'     = 'classljson_1_1array.html'
+'ljson::value?'     = 'classljson_1_1value.html'
+'ljson::error?'     = 'classljson_1_1error.html'
+'ljson::expected?'  = 'classljson_1_1expected.html'
+'expected?'         = 'classljson_1_1expected.html'
+'ljson::monostate?' = 'structljson_1_1expected.html'
+'ljson::null_type?' = 'classljson_1_1null__type.html'
