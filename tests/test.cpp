@@ -1,18 +1,21 @@
 #include <initializer_list>
 #include <iostream>
+#include <list>
 #include <string>
 #include <array>
 #include <ljson.hpp>
 #include <gtest/gtest.h>
 
 template<typename... args_t>
-void println(std::format_string<args_t...> fmt, args_t&&... args) {
-        std::string output = std::format(fmt, std::forward<args_t>(args)...);
-        std::cout << output << "\n";
+void println(std::format_string<args_t...> fmt, args_t&&... args)
+{
+	std::string output = std::format(fmt, std::forward<args_t>(args)...);
+	std::cout << output << "\n";
 }
 
-void println() {
-        std::cout << "\n";
+void println()
+{
+	std::cout << "\n";
 }
 
 class ljson_test : public ::testing::Test {
@@ -28,12 +31,12 @@ class ljson_test : public ::testing::Test {
 
 TEST_F(ljson_test, parsing_simple_json)
 {
-	std::string   raw_json = R"""({"name": "cat", "age": 5, "smol": true})""";
+	std::string raw_json = R"""({"name": "cat", "age": 5, "smol": true})""";
 
 	try
 	{
 		ljson::node result = ljson::parser::parse(raw_json);
-		
+
 		EXPECT_TRUE(result.is_object());
 
 		EXPECT_TRUE(result.at("name").is_value());
@@ -59,7 +62,7 @@ TEST_F(ljson_test, parsing_simple_json)
 		EXPECT_TRUE(not result.at("smol").as_value()->try_as_string());
 		EXPECT_TRUE(not result.at("smol").as_value()->try_as_null());
 
-		result.at("name") = "new_cat";
+		result.at("name") = ( const char* ) "new_cat";
 		EXPECT_EQ(result.at("name").as_value()->as_string(), "new_cat");
 		EXPECT_EQ(result.at("name").as_string(), "new_cat");
 		EXPECT_TRUE(result.at("name").as_value()->is_string());
@@ -91,7 +94,7 @@ TEST_F(ljson_test, object_iteration)
 
 	std::map<std::string, std::pair<std::string, ljson::value_type>> obj = {
 	    {"name",   {"cat", ljson::value_type::string}},
-	    { "age",	    {"5", ljson::value_type::integer}},
+	    { "age",    {"5", ljson::value_type::integer}},
 	    {"smol", {"true", ljson::value_type::boolean}},
 	};
 
@@ -134,12 +137,12 @@ TEST_F(ljson_test, array_iteration)
 	)""";
 
 	const std::map<std::string, ljson::value_type> arr = {
-	    {"meow",  ljson::value_type::string},
-	    {  "hi",  ljson::value_type::string},
+	    {"meow",   ljson::value_type::string},
+	    {  "hi",   ljson::value_type::string},
 	    {   "5",  ljson::value_type::integer},
-	    { "5.0",  ljson::value_type::double_t},
-	    {"true", ljson::value_type::boolean},
-	    {"null",    ljson::value_type::null},
+	    { "5.0", ljson::value_type::double_t},
+	    {"true",  ljson::value_type::boolean},
+	    {"null",     ljson::value_type::null},
 	};
 
 	ljson::parser parser;
@@ -173,13 +176,15 @@ TEST_F(ljson_test, construct_from_initializer_list)
 {
 	std::set<int> num = {1, 2, 3};
 
+	// clang-format off
 	ljson::node node = {
-	    {"key1",		      5},
-	    {"key2",		     "value"},
-	    {"key3",		     false},
-	    {"key4",	     ljson::null},
-	    {"key5", ljson::node({1, 2, 3})},
+		{"key1", 5},
+		{"key2", "value"},
+		{"key3", false},
+		{"key4", ljson::null},
+		{"key5", ljson::node({1, 2, 3})},
 	};
+	// clang-format on
 
 	EXPECT_TRUE(node.is_object());
 
@@ -215,11 +220,11 @@ TEST_F(ljson_test, construct_from_initializer_list)
 TEST_F(ljson_test, construct_from_initializer_list_from_array)
 {
 	std::map<std::string, ljson::value_type> val = {
-	    {"1.3223",	 ljson::value_type::double_t},
-	    {	     "2",  ljson::value_type::integer},
-	    {  "string",  ljson::value_type::string},
-	    {    "true", ljson::value_type::boolean},
-	    {    "null",    ljson::value_type::null},
+	    {"1.3223", ljson::value_type::double_t},
+	    {     "2",  ljson::value_type::integer},
+	    {"string",   ljson::value_type::string},
+	    {  "true",  ljson::value_type::boolean},
+	    {  "null",     ljson::value_type::null},
 	};
 
 	ljson::node node = {
@@ -313,13 +318,13 @@ TEST_F(ljson_test, invalid_json)
 #else
 	ljson::node node = parser.parse(R"""({"na\rm\be\f": "c\tat", "k\ney": "val\"ue"}")""");
 
-// clang-format off
+	// clang-format off
 	EXPECT_EQ(
 R"""({
     "k\ney": "val\"ue",
     "na\rm\be\f": "c\tat"
-})""", node.dump_to_string()); 
-// clang-format on
+})""", node.dump_to_string());
+	// clang-format on
 
 	EXPECT_NO_THROW(parser.parse(R"""({"na\rm\be\f": "c\tat", "k\ney": "val\"ue"}")"""));
 	EXPECT_NO_THROW(parser.parse(R"""({"name":"cat","age":5,"smol":true,"key":null})"""));
@@ -336,11 +341,13 @@ TEST_F(ljson_test, node_add_object)
 	    {"key2", "value2"},
 	};
 
+	// clang-format off
 	node += ljson::object_pairs{
-	    {"key3",			      "value3"},
-		{"key4",				 "value4"},
-	    { "arr", ljson::node({"arr1", "arr2", "arr3"})}
-	  };
+		{"key3", "value3"},
+		{"key4", "value4"},
+		{"arr", ljson::node({"arr1", "arr2", "arr3"})}
+	};
+	// clang-format on
 
 	EXPECT_TRUE(node.contains("key1"));
 	EXPECT_TRUE(node.at("key1").is_value());
@@ -457,14 +464,14 @@ TEST_F(ljson_test, insert_into_object)
 	};
 
 	std::map<std::string, int> object = {
-		{"key1", 1},
-		{"key2", 2},
+	    {"key1", 1},
+	    {"key2", 2},
 	};
 
 	std::set<std::string> array = {"arr1", "arr2"};
 
-	node.insert("key3", (const char*) "value3");
-	node.insert("key4", (const char*) "value4");
+	node.insert("key3", ( const char* ) "value3");
+	node.insert("key4", ( const char* ) "value4");
 	node.insert("arr", array);
 	node.insert("obj", object);
 
@@ -518,14 +525,14 @@ TEST_F(ljson_test, push_back_into_array)
 	ljson::node node(ljson::node_type::array);
 
 	std::map<std::string, int> object = {
-		{"key1", 1},
-		{"key2", 2},
+	    {"key1", 1},
+	    {"key2", 2},
 	};
 
 	std::set<std::string> array = {"arr1", "arr2", "arr3"};
 
-	node.push_back((const char*) "value1");
-	node.push_back((const char*) "value2");
+	node.push_back(( const char* ) "value1");
+	node.push_back(( const char* ) "value2");
 	node.push_back(array);
 	node.push_back(object);
 
@@ -562,6 +569,170 @@ TEST_F(ljson_test, push_back_into_array)
 	EXPECT_TRUE(node.at(3).at("key2").is_value());
 	EXPECT_TRUE(node.at(3).at("key2").as_value()->is_integer());
 	EXPECT_EQ(node.at(3).as_object()->at("key2").as_value()->as_integer(), 2);
+}
+
+TEST_F(ljson_test, setting_values_asign_operator)
+{
+	ljson::node node;
+	EXPECT_TRUE(node.is_object());
+
+	node = 50;
+	EXPECT_TRUE(node.is_integer());
+	EXPECT_EQ(node.as_integer(), 50);
+
+	node = true;
+	EXPECT_TRUE(node.is_boolean());
+	EXPECT_EQ(node.as_boolean(), true);
+
+	node = ljson::null;
+	EXPECT_TRUE(node.is_null());
+	EXPECT_EQ(node.as_null(), ljson::null);
+
+	node = 1.5;
+	EXPECT_TRUE(node.is_double());
+	EXPECT_EQ(node.as_double(), 1.5);
+
+	node = ( const char* ) "string";
+	EXPECT_TRUE(node.is_string());
+	EXPECT_EQ(node.as_string(), "string");
+
+	node = ljson::node(ljson::node_type::array);
+	EXPECT_TRUE(node.is_array());
+
+	node = ljson::value(( const char* ) "meow");
+	EXPECT_TRUE(node.is_string());
+
+	std::map<std::string, int> object = {
+	    {"key1", 1},
+	    {"key2", 2},
+	};
+
+	node = object;
+	EXPECT_TRUE(node.is_object());
+	EXPECT_TRUE(node.contains("key1"));
+	EXPECT_TRUE(node.contains("key2"));
+
+	std::list<int> array = {1, 2, 3, 4, 5};
+	node		     = array;
+	EXPECT_TRUE(node.is_array());
+	EXPECT_EQ(node.at(0).as_integer(), 1);
+	EXPECT_EQ(node.at(1).as_integer(), 2);
+	EXPECT_EQ(node.at(2).as_integer(), 3);
+	EXPECT_EQ(node.at(3).as_integer(), 4);
+	EXPECT_EQ(node.at(4).as_integer(), 5);
+
+	// clang-format off
+	node = {
+		{"object", ljson::node({
+				{"key1", "val1"},
+				{"key2", "val2"},
+				})
+		}
+	};
+	// clang-format on
+
+	EXPECT_EQ(node.at("object").at("key1").as_string(), "val1");
+	node.at("object").at("key1") = ( const char* ) "val3";
+	EXPECT_TRUE(node.at("object").contains("key1"));
+	EXPECT_TRUE(node.at("object").at("key1").is_string());
+	EXPECT_EQ(node.at("object").at("key1").as_string(), "val3");
+
+	node.at("object").at("key1") = std::string("val4");
+	EXPECT_EQ(node.at("object").at("key1").as_string(), "val4");
+
+	ljson::node node2 = {
+	    {"key1", "value1"},
+	    {"key2", "value2"},
+	};
+	
+	node = node2;
+
+	EXPECT_TRUE(node.is_object());
+	EXPECT_EQ(node.at("key1").as_string(), "value1");
+	EXPECT_EQ(node.at("key2").as_string(), "value2");
+
+}
+
+TEST_F(ljson_test, setting_values_set_method)
+{
+	ljson::node node;
+	EXPECT_TRUE(node.is_object());
+
+	node.set(50);
+	EXPECT_TRUE(node.is_integer());
+	EXPECT_EQ(node.as_integer(), 50);
+
+	node.set(true);
+	EXPECT_TRUE(node.is_boolean());
+	EXPECT_EQ(node.as_boolean(), true);
+
+	node.set(ljson::null);
+	EXPECT_TRUE(node.is_null());
+	EXPECT_EQ(node.as_null(), ljson::null);
+
+	node.set(-1.5);
+	EXPECT_TRUE(node.is_double());
+	EXPECT_EQ(node.as_double(), -1.5);
+
+	node.set(( const char* ) "string");
+	EXPECT_TRUE(node.is_string());
+	EXPECT_EQ(node.as_string(), "string");
+
+	node.set(ljson::node(ljson::node_type::array));
+	EXPECT_TRUE(node.is_array());
+
+	node.set(ljson::value(( const char* ) "meow"));
+	EXPECT_TRUE(node.is_string());
+
+	std::map<std::string, int> object = {
+	    {"key1", 1},
+	    {"key2", 2},
+	};
+
+	node.set(object);
+	EXPECT_TRUE(node.is_object());
+	EXPECT_TRUE(node.contains("key1"));
+	EXPECT_TRUE(node.contains("key2"));
+
+	std::list<int> array = {1, 2, 3, 4, 5};
+	node.set(array);
+
+	EXPECT_TRUE(node.is_array());
+	EXPECT_EQ(node.at(0).as_integer(), 1);
+	EXPECT_EQ(node.at(1).as_integer(), 2);
+	EXPECT_EQ(node.at(2).as_integer(), 3);
+	EXPECT_EQ(node.at(3).as_integer(), 4);
+	EXPECT_EQ(node.at(4).as_integer(), 5);
+
+	// clang-format off
+	node.set(ljson::node({
+		{"object", ljson::node({
+				{"key1", "val1"},
+				{"key2", "val2"},
+				})
+		}
+	}));
+	// clang-format on
+
+	EXPECT_EQ(node.at("object").at("key1").as_string(), "val1");
+	node.at("object").at("key1") = ( const char* ) "val3";
+	EXPECT_TRUE(node.at("object").contains("key1"));
+	EXPECT_TRUE(node.at("object").at("key1").is_string());
+	EXPECT_EQ(node.at("object").at("key1").as_string(), "val3");
+
+	node.at("object").at("key1") = std::string("val4");
+	EXPECT_EQ(node.at("object").at("key1").as_string(), "val4");
+
+	ljson::node node2 = {
+	    {"key1", "value1"},
+	    {"key2", "value2"},
+	};
+	
+	node.set(node2);
+
+	EXPECT_TRUE(node.is_object());
+	EXPECT_EQ(node.at("key1").as_string(), "value1");
+	EXPECT_EQ(node.at("key2").as_string(), "value2");
 }
 
 int main(int argc, char** argv)

@@ -789,8 +789,8 @@ namespace ljson {
 	template<typename allowed_node_types>
 	concept is_allowed_node_type = std::is_same_v<allowed_node_types, std::string> || std::is_same_v<allowed_node_types, const char*> ||
 				       std::is_arithmetic_v<allowed_node_types> || std::is_same_v<allowed_node_types, null_type> ||
-				       std::is_same_v<allowed_node_types, bool> || std::is_same_v<allowed_node_types, ljson::node> ||
-				       std::is_same_v<allowed_node_types, class value>;
+				       std::is_same_v<allowed_node_types, bool> || std::is_same_v<allowed_node_types, class value> ||
+				       std::is_same_v<allowed_node_types, ljson::node>;
 
 	/**
 	 * @brief concept for enabling ljson::node to accept std key/value containers
@@ -799,19 +799,32 @@ namespace ljson {
 	concept is_key_value_container = requires(container_type container) {
 		typename container_type::key_type;
 		typename container_type::mapped_type;
-		{ container.begin() } -> std::same_as<typename container_type::iterator>;
-		{ container.end() } -> std::same_as<typename container_type::iterator>;
+		{
+			container.begin()
+		} -> std::same_as<typename container_type::iterator>;
+		{
+			container.end()
+		} -> std::same_as<typename container_type::iterator>;
 	} && std::is_same_v<typename container_type::key_type, std::string> && is_allowed_node_type<typename container_type::mapped_type>;
+
+	template<typename string_type>
+	concept is_string_type = std::is_same_v<string_type, std::string> || std::is_same_v<string_type, std::wstring>;
 
 	/**
 	 * @brief concept for enabling ljson::node to accept std array-like containers
 	 */
 	template<typename container_type>
-	concept is_value_container = requires(container_type container) {
-		typename container_type::value_type;
-		{ container.begin() } -> std::same_as<typename container_type::iterator>;
-		{ container.end() } -> std::same_as<typename container_type::iterator>;
-	} && not is_key_value_container<container_type> && is_allowed_node_type<typename container_type::value_type>;
+	concept is_value_container =
+	    requires(container_type container) {
+		    typename container_type::value_type;
+		    {
+			    container.begin()
+		    } -> std::same_as<typename container_type::iterator>;
+		    {
+			    container.end()
+		    } -> std::same_as<typename container_type::iterator>;
+	    } && not is_key_value_container<container_type> && is_allowed_node_type<typename container_type::value_type> &&
+	    not is_string_type<container_type>;
 
 	/**
 	 * @brief puts a constraint on the allowed std container types to be inserted into ljson::node
@@ -823,7 +836,7 @@ namespace ljson {
 	 * @brief puts a constraint on the allowed types to be inserted into ljson::node
 	 */
 	template<typename value_type>
-	concept node_type_concept = container_type_concept<value_type> || is_allowed_node_type<value_type>;
+	concept container_or_node_type = container_type_concept<value_type> || is_allowed_node_type<value_type>;
 
 	using object_pairs = std::initializer_list<std::pair<std::string, std::any>>;
 	using array_values = std::initializer_list<std::any>;
@@ -844,25 +857,28 @@ namespace ljson {
 			void handle_std_any(const std::any& any_value, std::function<void(std::any)> insert_func);
 
 			template<typename is_allowed_node_type>
-			std::variant<class value, ljson::node> handle_allowed_node_types(const is_allowed_node_type& value);
+			constexpr std::variant<class value, ljson::node> handle_allowed_node_types(
+			    const is_allowed_node_type& value) noexcept;
+
+			template<typename container_or_node_type>
+			constexpr void setting_allowed_node_type(const container_or_node_type& node_value) noexcept;
 
 		public:
 			explicit node();
 			explicit node(const json_node& n);
 			explicit node(enum node_type type);
-			explicit node(const class value& value);
 
-			template<typename container_type_concept>
-			explicit node(const container_type_concept& container);
+			template<typename container_or_node_type>
+			explicit node(const container_or_node_type& container) noexcept;
 
 			node(const std::initializer_list<std::pair<std::string, std::any>>& pairs);
 			node(const std::initializer_list<std::any>& val);
 
-			template<typename node_type_concept>
-			expected<class ljson::node, error> insert(const std::string& key, const node_type_concept& node);
+			template<typename container_or_node_type>
+			expected<class ljson::node, error> insert(const std::string& key, const container_or_node_type& node);
 
-			template<typename node_type_concept>
-			expected<class ljson::node, error> push_back(const node_type_concept& node);
+			template<typename container_or_node_type>
+			expected<class ljson::node, error> push_back(const container_or_node_type& node);
 
 			expected<std::shared_ptr<class value>, error>	try_as_value() const noexcept;
 			expected<std::shared_ptr<ljson::array>, error>	try_as_array() const noexcept;
@@ -936,28 +952,15 @@ namespace ljson {
 			class node& at(const std::string& object_key) const;
 			class node& at(const size_t array_index) const;
 
-			template<typename number_type>
-			class node& operator=(const number_type& val);
-			class node& operator=(const std::shared_ptr<class value>& val);
-			class node& operator=(const class value& val);
-			class node& operator=(const std::shared_ptr<ljson::array>& arr);
-			class node& operator=(const std::shared_ptr<ljson::object>& obj);
-			class node& operator=(const std::string& val);
-			class node& operator=(const char* val);
-			class node& operator=(const bool val);
-			class node& operator=(const null_type val);
+			template<typename container_or_node_type>
+			void set(const container_or_node_type& node_value) noexcept;
+
+			template<typename container_or_node_type>
+			class node& operator=(const container_or_node_type& node_value) noexcept;
 
 			class node& operator+=(const std::initializer_list<std::pair<std::string, std::any>>& pairs);
 			class node& operator+=(const std::initializer_list<std::any>& val);
 			class node  operator+(const node& other_node);
-
-			template<typename number_type>
-			expected<monostate, error> set(const number_type value) noexcept;
-			expected<monostate, error> set(const class value& value) noexcept;
-			expected<monostate, error> set(const std::string& value) noexcept;
-			expected<monostate, error> set(const bool value) noexcept;
-			expected<monostate, error> set(const ljson::null_type value) noexcept;
-			expected<monostate, error> set(const char* value) noexcept;
 
 			void dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf = {' ', 4},
 			    int indent = 0) const;
@@ -1891,10 +1894,6 @@ namespace ljson {
 	{
 	}
 
-	node::node(const class value& value) : _node(std::make_shared<class value>(value))
-	{
-	}
-
 	node::node(enum node_type type)
 	{
 		switch (type)
@@ -1911,53 +1910,14 @@ namespace ljson {
 		}
 	}
 
-	template<typename container_type_concept>
-	node::node(const container_type_concept& container)
+	template<typename container_or_node_type>
+	node::node(const container_or_node_type& node_value) noexcept
 	{
-		if constexpr (is_value_container<container_type_concept>)
-		{
-			_node = std::make_shared<ljson::array>();
-
-			for (auto& val : container)
-			{
-				std::variant<class value, ljson::node> v = this->handle_allowed_node_types(val);
-
-				if (std::holds_alternative<class value>(v))
-				{
-					this->push_back(node(std::get<class value>(v)));
-				}
-				else
-				{
-					this->push_back(std::get<ljson::node>(v));
-				}
-			}
-		}
-		else if constexpr (is_key_value_container<container_type_concept>)
-		{
-			_node = std::make_shared<ljson::object>();
-
-			for (auto& [key, val] : container)
-			{
-				std::variant<class value, ljson::node> v = this->handle_allowed_node_types(val);
-
-				if (std::holds_alternative<class value>(v))
-				{
-					this->insert(key, node(std::get<class value>(v)));
-				}
-				else
-				{
-					this->insert(key, std::get<ljson::node>(v));
-				}
-			}
-		}
-		else
-		{
-			static_assert(false && "unsupported type is in the ljson::node constructor");
-		}
+		this->setting_allowed_node_type(node_value);
 	}
 
 	template<typename is_allowed_node_type>
-	std::variant<class value, ljson::node> node::handle_allowed_node_types(const is_allowed_node_type& value)
+	constexpr std::variant<class value, ljson::node> node::handle_allowed_node_types(const is_allowed_node_type& value) noexcept
 	{
 		if constexpr (std::is_same<is_allowed_node_type, class value>::value)
 		{
@@ -1993,6 +1953,63 @@ namespace ljson {
 		else
 		{
 			static_assert(false && "unsupported value_type in function node::handle_allowed_node_types(...)");
+		}
+	}
+
+	template<typename container_or_node_type>
+	constexpr void node::setting_allowed_node_type(const container_or_node_type& node_value) noexcept
+	{
+		if constexpr (is_value_container<container_or_node_type>)
+		{
+			_node = std::make_shared<ljson::array>();
+
+			for (auto& val : node_value)
+			{
+				std::variant<class value, ljson::node> v = this->handle_allowed_node_types(val);
+
+				if (std::holds_alternative<class value>(v))
+				{
+					this->push_back(node(std::get<class value>(v)));
+				}
+				else
+				{
+					this->push_back(std::get<ljson::node>(v));
+				}
+			}
+		}
+		else if constexpr (is_key_value_container<container_or_node_type>)
+		{
+			_node = std::make_shared<ljson::object>();
+
+			for (auto& [key, val] : node_value)
+			{
+				std::variant<class value, ljson::node> v = this->handle_allowed_node_types(val);
+
+				if (std::holds_alternative<class value>(v))
+				{
+					this->insert(key, node(std::get<class value>(v)));
+				}
+				else
+				{
+					this->insert(key, std::get<ljson::node>(v));
+				}
+			}
+		}
+		else if constexpr (is_allowed_node_type<container_or_node_type>)
+		{
+			std::variant<class value, ljson::node> n = this->handle_allowed_node_types(node_value);
+			if (std::holds_alternative<class value>(n))
+			{
+				_node = std::make_shared<class value>(std::get<class value>(n));
+			}
+			else
+			{
+				_node = std::get<ljson::node>(n)._node;
+			}
+		}
+		else
+		{
+			static_assert(false && "unsupported type in the ljson::node constructor");
 		}
 	}
 
@@ -2169,66 +2186,18 @@ namespace ljson {
 		return obj->insert(key, node);
 	}
 
-	template<typename node_type_concept>
-	expected<class ljson::node, error> node::insert(const std::string& key, const node_type_concept& value)
+	template<typename container_or_node_type>
+	expected<class ljson::node, error> node::insert(const std::string& key, const container_or_node_type& value)
 	{
-		if constexpr (is_allowed_node_type<node_type_concept>)
-		{
-			std::variant<class value, ljson::node> v = this->handle_allowed_node_types(value);
-
-			if (std::holds_alternative<class value>(v))
-			{
-				return this->add_value_to_key(key, std::get<class value>(v));
-			}
-			else if (std::holds_alternative<ljson::node>(v))
-			{
-				return this->add_node_to_key(key, std::get<ljson::node>(v));
-			}
-			else
-			{
-				return unexpected(error(error_type::wrong_type, "wrong type: trying to insert to an object node"));
-			}
-		}
-		else if constexpr (container_type_concept<node_type_concept>)
-		{
-			ljson::node n(value);
-			return this->add_node_to_key(key, n);
-		}
-		else
-		{
-			static_assert(false && "unsupported type is inserted into an object node");
-		}
+		ljson::node n(value);
+		return this->add_node_to_key(key, n);
 	}
 
-	template<typename node_type_concept>
-	expected<class ljson::node, error> node::push_back(const node_type_concept& value)
+	template<typename container_or_node_type>
+	expected<class ljson::node, error> node::push_back(const container_or_node_type& value)
 	{
-		if constexpr (is_allowed_node_type<node_type_concept>)
-		{
-			std::variant<class value, ljson::node> v = this->handle_allowed_node_types(value);
-
-			if (std::holds_alternative<class value>(v))
-			{
-				return this->add_value_to_array(std::get<class value>(v));
-			}
-			else if (std::holds_alternative<ljson::node>(v))
-			{
-				return this->add_node_to_array(std::get<ljson::node>(v));
-			}
-			else
-			{
-				return unexpected(error(error_type::wrong_type, "wrong type: trying to push_back to an array node"));
-			}
-		}
-		else if constexpr (container_type_concept<node_type_concept>)
-		{
-			ljson::node n(value);
-			return this->add_node_to_array(n);
-		}
-		else
-		{
-			static_assert(false && "unsupported type is pushed_back into an object node");
-		}
+		ljson::node n(value);
+		return this->add_node_to_array(n);
 	}
 
 	expected<class ljson::node, error> node::add_value_to_key(const std::string& key, const class value& value)
@@ -2542,78 +2511,20 @@ namespace ljson {
 		return arr->at(array_index);
 	}
 
-	class node& node::operator=(const std::shared_ptr<class value>& val)
+	template<typename container_or_node_type>
+	class node& node::operator=(const container_or_node_type& node_value) noexcept
 	{
-		assert(val != nullptr);
-		if (this->is_value())
+		if constexpr (std::is_same_v<container_or_node_type, ljson::node>)
 		{
-			auto n = this->as_value();
-			*n     = *val;
+			if (this != &node_value)
+			{
+				this->setting_allowed_node_type(node_value);
+			}
 		}
 		else
 		{
-			_node = val;
+			this->setting_allowed_node_type(node_value);
 		}
-		return *this;
-	}
-
-	class node& node::operator=(const class value& val)
-	{
-		if (this->is_value())
-		{
-			auto n = this->as_value();
-			*n     = val;
-		}
-		else
-		{
-			_node = std::make_shared<class value>(val);
-		}
-		return *this;
-	}
-
-	class node& node::operator=(const std::shared_ptr<ljson::array>& arr)
-	{
-		_node = arr;
-		return *this;
-	}
-
-	class node& node::operator=(const std::shared_ptr<ljson::object>& obj)
-	{
-		_node = obj;
-		return *this;
-	}
-
-	class node& node::operator=(const std::string& val)
-	{
-		_node = std::make_shared<class value>(val);
-		return *this;
-	}
-
-	class node& node::operator=(const char* val)
-	{
-		assert(val != NULL);
-		*this = std::string(val);
-		return *this;
-	}
-
-	class node& node::operator=(const null_type)
-	{
-		_node = std::make_shared<class value>(ljson::null);
-		return *this;
-	}
-
-	template<typename number_type>
-	class node& node::operator=(const number_type& val)
-	{
-		static_assert(std::is_arithmetic<number_type>::value, "Template paramenter must be a numeric type");
-
-		_node = std::make_shared<class value>(val);
-		return *this;
-	}
-
-	class node& node::operator=(const bool val)
-	{
-		_node = std::make_shared<class value>(val);
 		return *this;
 	}
 
@@ -2732,59 +2643,10 @@ namespace ljson {
 		}
 	}
 
-	expected<monostate, error> node::set(const class value& value) noexcept
+	template<typename container_or_node_type>
+	void node::set(const container_or_node_type& node_value) noexcept
 	{
-		auto val = this->try_as_value();
-		if (not val)
-			return unexpected(val.error());
-
-		*val.value() = value;
-
-		return monostate();
-	}
-
-	expected<monostate, error> node::set(const std::string& value) noexcept
-	{
-		class value new_value(value);
-
-		this->set(new_value);
-
-		return monostate();
-	}
-
-	template<typename number_type>
-	expected<monostate, error> node::set(const number_type value) noexcept
-	{
-		static_assert(std::is_arithmetic_v<number_type>, "Template paramenter must be a numeric type");
-		class value new_value(value);
-		this->set(new_value);
-
-		return monostate();
-	}
-
-	expected<monostate, error> node::set(const bool value) noexcept
-	{
-		class value new_value(value);
-
-		this->set(new_value);
-
-		return monostate();
-	}
-
-	expected<monostate, error> node::set(const char* value) noexcept
-	{
-		std::string str = value;
-		this->set(str);
-		return monostate();
-	}
-
-	expected<monostate, error> node::set(const ljson::null_type) noexcept
-	{
-		class value new_value(ljson::null);
-
-		this->set(new_value);
-
-		return monostate();
+		this->setting_allowed_node_type(node_value);
 	}
 
 	void node::dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf, int indent) const

@@ -52,3 +52,7 @@ IndentExternBlock: true
 IndentGotoLabels: true
 IndentPPDirectives: AfterHash
 LambdaBodyIndentation: Signature
+
+AllowShortCompoundRequirementOnASingleLine: false
+BreakBeforeConceptDeclarations: Always
+RequiresExpressionIndentation: OuterScope

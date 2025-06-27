@@ -48,12 +48,10 @@ int main(int argc, char* argv[])
 	{
 		ljson::node node = parser.parse(file);
 		node.add_node_to_key("key", j2);
-		auto ok		   = node.at("key").set(ljson::null);
-		ok		   = node.at("key").set("string value");
-		if (not ok)
-			println("err: {}", ok.error().message());
+		node.at("key").set(ljson::null);
+		node.at("key").set(std::string("string value"));
 
-		node.at("key") = "new_value";
+		node.at("key") = std::string("new_value");
 
 		auto obj = node.at("obj").as_object();
 		for (auto [key, value] : *obj)
