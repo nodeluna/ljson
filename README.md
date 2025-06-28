@@ -35,7 +35,7 @@ int main() {
 		std::pair<char, int> indent_config = {'\t', 2}; // you can specifiy tab/space here and it's count
 		node.dump_to_stdout(indent_config);
 		node.dump_to_stdout(); // not specifiying defaults to {' ', 4}
-		node.write_to_file("new_file.json" /*, indent_config */);
+		node.dump_to_file("new_file.json" /*, indent_config */);
 
 
 	} catch (const ljson::error& error) {
@@ -136,7 +136,7 @@ int main() {
 		new_node.set(12);
 		new_node.set(ljson::null); // set its value to 'null'
 
-		node.write_to_file("new_file.json"); // write the new changes
+		node.dump_to_file("new_file.json"); // write the new changes
 
 
 	} catch (const ljson::error& error) {

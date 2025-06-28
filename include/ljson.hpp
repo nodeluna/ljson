@@ -328,13 +328,40 @@ namespace ljson {
 			std::string msg;
 
 		public:
+			/**
+			 * @brief constructor
+			 * @param err holds the value of ljson::error_type
+			 * @param message the string message of the error
+			 */
 			error(error_type err, const std::string& message);
+
+			/**
+			 * @brief constructor
+			 * @param err holds the value of ljson::error_type
+			 * @param fmt std::format() type
+			 * @param args the arguments for std::format()
+			 * @tparam args_t the types of arguments for std::format()
+			 */
 			template<typename... args_t>
 			error(error_type err, std::format_string<args_t...> fmt, args_t&&... args);
 
-			const char*	   what() const noexcept;
+			/**
+			 * @brief get the string message of the error
+			 * @return get the string message of the error
+			 */
+			const char* what() const noexcept;
+
+			/**
+			 * @brief get the string message of the error
+			 * @return get the string message of the error
+			 */
 			const std::string& message() const noexcept;
-			error_type	   value();
+
+			/**
+			 * @brief get the ljson::error_type of the error
+			 * @return get the ljson::error_type of the error
+			 */
+			error_type value();
 	};
 
 	enum class value_type {
@@ -890,18 +917,89 @@ namespace ljson {
 			template<is_allowed_value_type T>
 			expected<T, error> access_value(std::function<expected<T, error>(std::shared_ptr<class value>)> fun) const;
 
+			/**
+			 * @brief cast a node into a std::string if it is holding ljson::value that is a json string (std::string)
+			 * @detail @cpp
+			 * ljson::expected<std::string, error> string = node.try_as_string();
+			 * if (not string)
+			 * {
+			 *	// handle error
+			 *	std::println("{}", string.error().message());
+			 * }
+			 * else
+			 * {
+			 *	// success
+			 *	std::string string_value = string.value();
+			 * }
+			 * @ecpp
+			 * @return std::string or ljson::error if it doesn't hold a string
+			 */
 			expected<std::string, error> try_as_string() const noexcept;
 			expected<int64_t, error>     try_as_integer() const noexcept;
 			expected<double, error>	     try_as_double() const noexcept;
 			expected<double, error>	     try_as_number() const noexcept;
 			expected<bool, error>	     try_as_boolean() const noexcept;
-			expected<null_type, error>   try_as_null() const noexcept;
-			std::string		     as_string() const;
-			int64_t			     as_integer() const;
-			double			     as_double() const;
-			double			     as_number() const;
-			bool			     as_boolean() const;
-			null_type		     as_null() const;
+
+			/**
+			 * @brief cast a node into a ljson::null_type if it is holding ljson::value that is a json null
+			 * @detail @cpp
+			 * ljson::expected<null_type, error> null = node.try_as_null();
+			 * if (not null)
+			 * {
+			 *	// handle error
+			 *	std::println("{}", null.error().message());
+			 * }
+			 * else
+			 * {
+			 *	// success
+			 *	ljson::null_type null_value = null.value();
+			 * }
+			 * @ecpp
+			 * @return ljson::null_type or ljson::error if it doesn't hold a null (ljson::null_type)
+			 */
+			expected<null_type, error> try_as_null() const noexcept;
+
+			/**
+			 * @brief cast a node into a string if it is holding ljson::value that is a json string (ljson::null_type)
+			 * @exception ljson::error if it doesn't hold a ljson::value and string
+			 * @return json null type
+			 */
+			std::string as_string() const;
+
+			/**
+			 * @brief cast a node into a int64_t if it is holding ljson::value that is a json number (int64_t)
+			 * @exception ljson::error if it doesn't hold a ljson::value and int64_t
+			 * @return json null type
+			 */
+			int64_t as_integer() const;
+
+			/**
+			 * @brief cast a node into a double if it is holding ljson::value that is a json number (double)
+			 * @exception ljson::error if it doesn't hold a ljson::value and double
+			 * @return json null type
+			 */
+			double as_double() const;
+
+			/**
+			 * @brief cast a node into a double if it is holding ljson::value that is a json number (int64_t or double)
+			 * @exception ljson::error if it doesn't hold a ljson::value and (int64_t or double)
+			 * @return json null type
+			 */
+			double as_number() const;
+
+			/**
+			 * @brief cast a node into a bool if it is holding ljson::value that is a json boolean (bool)
+			 * @exception ljson::error if it doesn't hold a ljson::value and bool
+			 * @return json null type
+			 */
+			bool as_boolean() const;
+
+			/**
+			 * @brief cast a node into a ljson::null_type if it is holding ljson::value that is a json null (ljson::null_type)
+			 * @exception ljson::error if it doesn't hold a ljson::value and ljson::null_type
+			 * @return json null type
+			 */
+			null_type as_null() const;
 
 			/**
 			 * @brief checks if ljson::node is holding ljson::value
@@ -929,32 +1027,120 @@ namespace ljson {
 			bool is_object() const noexcept;
 
 			/**
-			 * @brief checks if ljson::node is holding ljson::value that is holding std::string (json string)
+			 * @brief checks if ljson::node is holding ljson::value that is holding json string (std::string)
 			 * @return true if it does
 			 */
 			bool is_string() const noexcept;
 
 			/**
-			 * @brief checks if ljson::node is holding ljson::value that is holding int64_t (json number)
+			 * @brief checks if ljson::node is holding ljson::value that is holding json number (int64_t)
 			 * @return true if it does
 			 */
-			bool	    is_integer() const noexcept;
-			bool	    is_double() const noexcept;
-			bool	    is_number() const noexcept;
-			bool	    is_boolean() const noexcept;
-			bool	    is_null() const noexcept;
-			node_type   type() const noexcept;
+			bool is_integer() const noexcept;
+
+			/**
+			 * @brief checks if ljson::node is holding ljson::value that is holding json number (double)
+			 * @return true if it does
+			 */
+			bool is_double() const noexcept;
+
+			/**
+			 * @brief checks if ljson::node is holding ljson::value that is holding json number (double or int64_t)
+			 * @return true if it does
+			 */
+			bool is_number() const noexcept;
+
+			/**
+			 * @brief checks if ljson::node is holding ljson::value that is holding json boolean (bool)
+			 * @return true if it does
+			 */
+			bool is_boolean() const noexcept;
+
+			/**
+			 * @brief checks if ljson::node is holding ljson::value that is holding json null (ljson::null_type)
+			 * @return true if it does
+			 */
+			bool is_null() const noexcept;
+
+			/**
+			 * @brief gets the ljson::node_type of the internal node
+			 * @return node_type
+			 */
+			node_type type() const noexcept;
+
+			/**
+			 * @brief gets string representation of ljson::node_type of the internal node
+			 * @return string name of the node_type
+			 */
 			std::string type_name() const noexcept;
-			value_type  valuetype() const noexcept;
+
+			/**
+			 * @brief gets the ljson::value_type of the node if it's holding ljson::value. otherwise it returns value_type::none
+			 * @return value_type
+			 */
+			value_type valuetype() const noexcept;
+
+			/**
+			 * @brief gets string representation of ljson::value_type of the internal node if it's holding ljson::value
+			 * @return string name of the value_type
+			 */
 			std::string value_type_name() const noexcept;
+
+			/**
+			 * @brief stringify the json (object, array or value) inside the ljson::node
+			 * @detail @json
+			 * {
+			 *   "key1": "val1",
+			 *   "key2": "val2"
+			 * }
+			 * @ejson
+			 * @detail @json
+			 * [
+			 *   "val1",
+			 *   "val2",
+			 *   "val3"
+			 * ]
+			 * @ejson
+			 * @detail @json
+			 *  value
+			 * @ejson
+			 * @return serialized json
+			 */
 			std::string stringify() const noexcept;
-			bool	    contains(const std::string& key) const noexcept;
+
+			/**
+			 * @brief checks if a key exists in a json object
+			 * @param key key to lookup
+			 * @return true if it does
+			 */
+			bool contains(const std::string& key) const noexcept;
+
+			/**
+			 * @brief checks if a key exists in a json object
+			 * @param object_key string value of the json object key
+			 * @return ljson::node& at the specified key
+			 */
 			class node& at(const std::string& object_key) const;
+
+			/**
+			 * @brief access the node at the specified array index
+			 * @param array_index size_t value of the json array index
+			 * @return ljson::node& at the specified index
+			 */
 			class node& at(const size_t array_index) const;
 
+			/**
+			 * @brief set a node with a container_or_node_type
+			 * @param node_value value to be set
+			 */
 			template<typename container_or_node_type>
 			void set(const container_or_node_type& node_value) noexcept;
 
+			/**
+			 * @brief asign a node with a container_or_node_type
+			 * @param node_value value to be set
+			 * @return the address of the node which can be used to modify the value
+			 */
 			template<typename container_or_node_type>
 			class node& operator=(const container_or_node_type& node_value) noexcept;
 
@@ -966,7 +1152,7 @@ namespace ljson {
 			    int indent = 0) const;
 			void dump_to_stdout(const std::pair<char, int>& indent_conf = {' ', 4}) const;
 			std::string		   dump_to_string(const std::pair<char, int>& indent_conf = {' ', 4}) const;
-			expected<monostate, error> write_to_file(
+			expected<monostate, error> dump_to_file(
 			    const std::filesystem::path& path, const std::pair<char, int>& indent_conf = {' ', 4}) const;
 
 			expected<class ljson::node, error> add_value_to_key(const std::string& key, const class value& value);
@@ -2727,7 +2913,7 @@ namespace ljson {
 		return data;
 	}
 
-	expected<monostate, error> node::write_to_file(const std::filesystem::path& path, const std::pair<char, int>& indent_conf) const
+	expected<monostate, error> node::dump_to_file(const std::filesystem::path& path, const std::pair<char, int>& indent_conf) const
 	{
 		std::ofstream file(path);
 		if (not file.is_open())
