@@ -26,17 +26,16 @@
 #include <source_location>
 #include <type_traits>
 
-
 /**
  * @brief the namespace for ljson
  */
 namespace ljson {
 
 	/**
-	 * @struct monostate
+	 * @class monostate
 	 * @brief an implementation of std::monostate to allow using ljson with C++20. check the cppreference
 	 */
-	struct monostate {};
+	class monostate {};
 
 	/**
 	 * @class expected
@@ -84,7 +83,8 @@ namespace ljson {
 			template<class U>
 			constexpr expected(const expected<U, E>& other) : _has_value(other.has_value())
 			{
-				static_assert(std::is_same<U, monostate>::value, "no available conversion between the provided value types");
+				static_assert(
+				    std::is_same<U, monostate>::value, "no available conversion between the provided value types");
 				static_assert(std::is_copy_constructible<T>::value && std::is_copy_constructible<E>::value, "");
 				if (_has_value)
 				{
@@ -133,8 +133,8 @@ namespace ljson {
 
 				return *this;
 			}
-			
-			constexpr ~expected() 
+
+			constexpr ~expected()
 			{
 				if (this->has_value())
 					_value.~T();
@@ -307,6 +307,10 @@ namespace ljson {
 		    });
 	}
 
+	/**
+	 * @enum error_type
+	 * @brief error values used in ljson::error
+	 */
 	enum class error_type {
 		none,
 		key_not_found,
