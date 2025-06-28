@@ -25,7 +25,7 @@
 #include <cassert>
 #include <source_location>
 #include <type_traits>
-#include <new>
+
 
 /**
  * @brief the namespace for ljson
@@ -53,89 +53,88 @@ namespace ljson {
 			};
 
 		public:
-			expected(const T& t) : _has_value(true)
+			constexpr expected(const T& t) : _has_value(true)
 			{
-				new (std::addressof(_value)) T(t);
+				std::construct_at(std::addressof(_value), T(t));
 			}
 
-			expected(const E& e) : _has_value(false)
+			constexpr expected(const E& e) : _has_value(false)
 			{
-				new (std::addressof(_error)) E(e);
+				std::construct_at(std::addressof(_error), E(e));
 			}
 
-			expected() : _has_value(true)
+			constexpr expected() : _has_value(true)
 			{
-				new (std::addressof(_value)) T();
+				static_assert(std::is_default_constructible<T>::value, "");
+				std::construct_at(std::addressof(_value), T());
 			}
 
-			expected& operator=(const expected& other)
+			constexpr expected& operator=(const expected& other)
 			{
+				static_assert(std::is_copy_assignable<T>::value && std::is_copy_assignable<E>::value, "");
 				if (this != &other)
 				{
 					this->~expected();
-					new (this) expected(other);
+					std::construct_at(this, expected(other));
 				}
 
 				return *this;
 			}
 
 			template<class U>
-			expected(const expected<U, E>& other) : _has_value(other.has_value())
+			constexpr expected(const expected<U, E>& other) : _has_value(other.has_value())
 			{
+				static_assert(std::is_same<U, monostate>::value, "no available conversion between the provided value types");
+				static_assert(std::is_copy_constructible<T>::value && std::is_copy_constructible<E>::value, "");
 				if (_has_value)
 				{
-					if constexpr (std::is_same_v<U, monostate>)
-					{
-						new (std::addressof(_value)) T();
-					}
-					else if constexpr (std::is_same_v<U, T>)
-					{
-						new (std::addressof(_value)) T(other.value());
-					}
-					else
-					{
-						static_assert(
-						    not std::is_same_v<U, T> && "no available conversion between the provided value types");
-					}
+					std::construct_at(std::addressof(_value), T());
 				}
 				else
 				{
-					new (std::addressof(_error)) E(other.error());
+					std::construct_at(std::addressof(_error), E(other.error()));
 				}
 			}
 
-			expected(const expected& other) : _has_value(other.has_value())
+			constexpr expected(const expected& other) : _has_value(other.has_value())
 			{
+				static_assert(std::is_copy_constructible<T>::value && std::is_copy_constructible<E>::value, "");
 				if (_has_value)
 				{
-					new (std::addressof(_value)) T(other.value());
+					std::construct_at(std::addressof(_value), T(other.value()));
 				}
 				else
 				{
-					new (std::addressof(_error)) E(other.error());
+					std::construct_at(std::addressof(_error), E(other.error()));
 				}
 			}
 
-			expected(const expected&& other) noexcept : _has_value(other._has_value)
+			constexpr expected(const expected&& other) noexcept : _has_value(other._has_value)
 			{
+				static_assert(std::is_move_constructible<T>::value && std::is_move_constructible<E>::value, "");
 				if (this->has_value())
-					new (std::addressof(_value)) T(std::move(other._value));
+				{
+					std::construct_at(std::addressof(_value), T(std::move(other._value)));
+				}
 				else
-					new (std::addressof(_error)) E(std::move(other._error));
+				{
+					std::construct_at(std::addressof(_error), E(std::move(other._error)));
+				}
 			}
 
-			expected& operator=(const expected&& other) noexcept
+			constexpr expected& operator=(const expected&& other) noexcept
 			{
+				static_assert(std::is_move_assignable<T>::value && std::is_move_assignable<E>::value, "");
 				if (this != &other)
 				{
 					this->~expected();
-					new (this) expected(std::move(other));
+					std::construct_at(this, expected(std::move(other)));
 				}
 
 				return *this;
 			}
-
-			~expected()
+			
+			constexpr ~expected() 
 			{
 				if (this->has_value())
 					_value.~T();
@@ -143,12 +142,12 @@ namespace ljson {
 					_error.~E();
 			}
 
-			bool has_value() const noexcept
+			constexpr bool has_value() const noexcept
 			{
 				return _has_value;
 			}
 
-			explicit operator bool() const noexcept
+			constexpr explicit operator bool() const noexcept
 			{
 				return this->has_value();
 			}
@@ -225,20 +224,20 @@ namespace ljson {
 				return std::move(_error);
 			}
 
-			template<class U = std::remove_cv_t<T>>
+			template<class U = typename std::remove_cv<T>::type>
 			constexpr T value_or(U&& other) const&
 			{
-				static_assert(std::is_convertible_v<U, T>);
+				static_assert(std::is_convertible<U, T>::value, "the provided type must be convertible to the value type");
 				if (_has_value)
 					return _value;
 				else
 					return static_cast<T>(std::forward<U>(other));
 			}
 
-			template<class U = std::remove_cv_t<E>>
+			template<class U = typename std::remove_cv<E>::type>
 			constexpr E error_or(U&& other) const&
 			{
-				static_assert(std::is_convertible_v<U, E>);
+				static_assert(std::is_convertible<U, E>::value, "the provided type must be convertible to the error type");
 				if (not _has_value)
 					return _error;
 				else
@@ -250,7 +249,7 @@ namespace ljson {
 	 * @brief a helper function to construct an unexpected type
 	 */
 	template<class E>
-	expected<monostate, E> unexpected(const E& e)
+	constexpr expected<monostate, E> unexpected(const E& e)
 	{
 		return expected<monostate, E>(e);
 	}
@@ -261,7 +260,7 @@ namespace ljson {
 	 * ljson::expected<ljson::node, std::string> node = ljson::unexpected("error");
 	 * @ecpp
 	 */
-	expected<monostate, std::string> unexpected(const char* e)
+	constexpr expected<monostate, std::string> unexpected(const char* e)
 	{
 		return unexpected<std::string>(std::string(e));
 	}
