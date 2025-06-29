@@ -893,9 +893,20 @@ namespace ljson {
 			template<typename container_or_node_type>
 			constexpr void setting_allowed_node_type(const container_or_node_type& node_value) noexcept;
 
+			template<is_allowed_value_type T>
+			expected<T, error> access_value(std::function<expected<T, error>(std::shared_ptr<class value>)> fun) const;
+
 		public:
+			/**
+			 * @brief default constructor which creates ljson::node with type ljson::node_type::object
+			 */
 			explicit node();
 			explicit node(const json_node& n);
+
+			/**
+			 * @brief constructor to allow setting the type of the ljson::node
+			 * @param type type of node from enum ljson::node_type
+			 */
 			explicit node(enum node_type type);
 
 			template<typename container_or_node_type>
@@ -910,15 +921,44 @@ namespace ljson {
 			template<typename container_or_node_type>
 			expected<class ljson::node, error> push_back(const container_or_node_type& node);
 
+			/**
+			 * @brief access the ljson::value the ljson::node is holding, if it exists
+			 * @return ljson::value or ljson::error if it doesn't hold a ljson::value
+			 */
 			expected<std::shared_ptr<class value>, error>	try_as_value() const noexcept;
-			expected<std::shared_ptr<ljson::array>, error>	try_as_array() const noexcept;
-			expected<std::shared_ptr<ljson::object>, error> try_as_object() const noexcept;
-			std::shared_ptr<class value>			as_value() const;
-			std::shared_ptr<ljson::array>			as_array() const;
-			std::shared_ptr<ljson::object>			as_object() const;
 
-			template<is_allowed_value_type T>
-			expected<T, error> access_value(std::function<expected<T, error>(std::shared_ptr<class value>)> fun) const;
+			/**
+			 * @brief access the ljson::array the ljson::node is holding, if it exists
+			 * @return ljson::array or ljson::error if it doesn't hold a ljson::array
+			 */
+			expected<std::shared_ptr<ljson::array>, error>	try_as_array() const noexcept;
+
+			/**
+			 * @brief access the ljson::object the ljson::node is holding, if it exists
+			 * @return ljson::object or ljson::error if it doesn't hold a ljson::object
+			 */
+			expected<std::shared_ptr<ljson::object>, error> try_as_object() const noexcept;
+
+			/**
+			 * @brief access the ljson::value the ljson::node is holding, if it exists
+			 * @throw ljson::error if it doesn't hold ljson::value
+			 * @return std::shared_ptr<ljson::value>
+			 */
+			std::shared_ptr<class value> as_value() const;
+
+			/**
+			 * @brief access the ljson::array the ljson::node is holding, if it exists
+			 * @throw ljson::error if it doesn't hold ljson::array
+			 * @return std::shared_ptr<ljson::array>
+			 */
+			std::shared_ptr<ljson::array> as_array() const;
+
+			/**
+			 * @brief access the ljson::object the ljson::node is holding, if it exists
+			 * @throw ljson::error if it doesn't hold ljson::object
+			 * @return std::shared_ptr<ljson::object>
+			 */
+			std::shared_ptr<ljson::object> as_object() const;
 
 			/**
 			 * @brief cast a node into a std::string if it is holding ljson::value that is a json string (std::string)
@@ -938,10 +978,30 @@ namespace ljson {
 			 * @return std::string or ljson::error if it doesn't hold a string
 			 */
 			expected<std::string, error> try_as_string() const noexcept;
-			expected<int64_t, error>     try_as_integer() const noexcept;
-			expected<double, error>	     try_as_double() const noexcept;
-			expected<double, error>	     try_as_number() const noexcept;
-			expected<bool, error>	     try_as_boolean() const noexcept;
+
+			/**
+			 * @brief cast a node into a int64_t if it is holding ljson::value that is a json number (int64_t)
+			 * @return int64_t or ljson::error if it doesn't hold a string
+			 */
+			expected<int64_t, error> try_as_integer() const noexcept;
+
+			/**
+			 * @brief cast a node into a double if it is holding ljson::value that is a json number (double)
+			 * @return double or ljson::error if it doesn't hold a string
+			 */
+			expected<double, error> try_as_double() const noexcept;
+
+			/**
+			 * @brief cast a node into a double if it is holding ljson::value that is a json number (double or int64_t)
+			 * @return double or ljson::error if it doesn't hold a string
+			 */
+			expected<double, error> try_as_number() const noexcept;
+
+			/**
+			 * @brief cast a node into a bool if it is holding ljson::value that is a json boolean (bool)
+			 * @return bool or ljson::error if it doesn't hold a string
+			 */
+			expected<bool, error> try_as_boolean() const noexcept;
 
 			/**
 			 * @brief cast a node into a ljson::null_type if it is holding ljson::value that is a json null
@@ -1149,12 +1209,48 @@ namespace ljson {
 
 			class node& operator+=(const std::initializer_list<std::pair<std::string, std::any>>& pairs);
 			class node& operator+=(const std::initializer_list<std::any>& val);
-			class node  operator+(const node& other_node);
+
+			/**
+			 * @brief add two ljson::node together. they must have the same type and be either object, array, string or number
+			 * @param other_node the other node to add to the current node
+			 * @detail @cpp
+			 * ljson::node new_node = node1 + node2;
+			 * @ecpp
+			 * @json
+			 * {"node1_key": "node1_value"}
+			 * @ejson
+			 * @json
+			 * {"node2_key": "node2_value"}
+			 * @ejson
+			 * @json
+			 * {"node1_key": "node1_value", "node2_key": "node2_value"}
+			 * @ejson
+			 * @throw ljson::error if different types or not one of the required types
+			 * @return new node containing content of both nodes
+			 */
+			class node operator+(const node& other_node);
 
 			void dump(const std::function<void(std::string)> out_func, const std::pair<char, int>& indent_conf = {' ', 4},
 			    int indent = 0) const;
+
+			/**
+			 * @brief write ljson::node to stdout
+			 * @param indent_conf indentation config for writing {char, size}
+			 */
 			void dump_to_stdout(const std::pair<char, int>& indent_conf = {' ', 4}) const;
-			std::string		   dump_to_string(const std::pair<char, int>& indent_conf = {' ', 4}) const;
+
+			/**
+			 * @brief write ljson::node to string
+			 * @param indent_conf indentation config for writing {char, size}
+			 * @return json serialized
+			 */
+			std::string dump_to_string(const std::pair<char, int>& indent_conf = {' ', 4}) const;
+
+			/**
+			 * @brief write ljson::node to a file
+			 * @param path path to write to
+			 * @param indent_conf indentation config for writing {char, size}
+			 */
 			expected<monostate, error> dump_to_file(
 			    const std::filesystem::path& path, const std::pair<char, int>& indent_conf = {' ', 4}) const;
 
