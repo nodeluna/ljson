@@ -88,7 +88,11 @@ namespace ljson {
 				static_assert(std::is_copy_constructible<T>::value && std::is_copy_constructible<E>::value, "");
 				if (_has_value)
 				{
-					std::construct_at(std::addressof(_value), T());
+
+					if constexpr (std::is_default_constructible<T>::value)
+						std::construct_at(std::addressof(_value), T());
+					else
+						std::construct_at(std::addressof(_error), E(other.error()));
 				}
 				else
 				{
@@ -816,6 +820,9 @@ namespace ljson {
 	class object;
 	class node;
 
+	/**
+	 * @brief allowed types in ljson::node
+	 */
 	template<typename allowed_node_types>
 	concept is_allowed_node_type = std::is_same_v<allowed_node_types, std::string> || std::is_same_v<allowed_node_types, const char*> ||
 				       std::is_arithmetic_v<allowed_node_types> || std::is_same_v<allowed_node_types, null_type> ||
@@ -863,7 +870,8 @@ namespace ljson {
 	concept container_type_concept = is_key_value_container<container_type> || is_value_container<container_type>;
 
 	/**
-	 * @brief puts a constraint on the allowed types to be inserted into ljson::node
+	 * @brief puts a constraint on the allowed types to be inserted into ljson::node which is container_type_concept or
+	 * is_allowed_node_type
 	 */
 	template<typename value_type>
 	concept container_or_node_type = container_type_concept<value_type> || is_allowed_node_type<value_type>;
@@ -925,13 +933,13 @@ namespace ljson {
 			 * @brief access the ljson::value the ljson::node is holding, if it exists
 			 * @return ljson::value or ljson::error if it doesn't hold a ljson::value
 			 */
-			expected<std::shared_ptr<class value>, error>	try_as_value() const noexcept;
+			expected<std::shared_ptr<class value>, error> try_as_value() const noexcept;
 
 			/**
 			 * @brief access the ljson::array the ljson::node is holding, if it exists
 			 * @return ljson::array or ljson::error if it doesn't hold a ljson::array
 			 */
-			expected<std::shared_ptr<ljson::array>, error>	try_as_array() const noexcept;
+			expected<std::shared_ptr<ljson::array>, error> try_as_array() const noexcept;
 
 			/**
 			 * @brief access the ljson::object the ljson::node is holding, if it exists
@@ -1179,18 +1187,68 @@ namespace ljson {
 			bool contains(const std::string& key) const noexcept;
 
 			/**
-			 * @brief checks if a key exists in a json object
-			 * @param object_key string value of the json object key
+			 * @brief access the node at the specified object key
+			 * @param object_key json key to access in an object
 			 * @return ljson::node& at the specified key
 			 */
 			class node& at(const std::string& object_key) const;
 
 			/**
 			 * @brief access the node at the specified array index
-			 * @param array_index size_t value of the json array index
+			 * @param array_index json index to access in an array
 			 * @return ljson::node& at the specified index
 			 */
 			class node& at(const size_t array_index) const;
+
+			/**
+			 * @brief access the node at the specified object key
+			 * @param object_key json key to access in an object
+			 * @detail @cpp
+			 * ljson::expected<std::reference_wrapper<ljson::node>, ljson::error> maybe_node =
+			 * object_node.try_at("key");
+			 * if (maybe_node)
+			 * {
+			 *	// notice the '&' is neccessary if this reference would be used to modify
+			 *	// the value inside
+			 *	ljson::node& node_at_key = maybe_node.value().get();
+			 *	// .value() to get the expected type, .get() for the node reference
+			 *
+			 *	// or you can set it like this to avoid forgetting the '&'
+			 *	maybe_node.value().get().set(std::string("new value"));
+			 * }
+			 * else
+			 * {
+			 *	std::println("{}", maybe_node.error().message());
+			 * }
+			 * @ecpp
+			 * @return either std::reference_wrapper<ljson::node> if the node was found or ljson::error if not
+			 */
+			expected<std::reference_wrapper<ljson::node>, ljson::error> try_at(const std::string& object_key) const noexcept;
+
+			/**
+			 * @brief access the node at the specified array index
+			 * @param array_index json index to access in an array
+			 * @detail @cpp
+			 * ljson::expected<std::reference_wrapper<ljson::node>, ljson::error> maybe_node =
+			 * array_node.try_at(0);
+			 * if (maybe_node)
+			 * {
+			 *	// notice the '&' is neccessary if this reference would be used to modify
+			 *	// the value inside
+			 *	ljson::node& node_at_key = maybe_node.value().get();
+			 *	// .value() to get the expected type, .get() for the node reference
+			 *
+			 *	// or you can set it like this to avoid forgetting the '&'
+			 *	maybe_node.value().get().set(true);
+			 * }
+			 * else
+			 * {
+			 *	std::println("{}", maybe_node.error().message());
+			 * }
+			 * @ecpp
+			 * @return either std::reference_wrapper<ljson::node> if the node was found or ljson::error if not
+			 */
+			expected<std::reference_wrapper<ljson::node>, ljson::error> try_at(const size_t array_index) const noexcept;
 
 			/**
 			 * @brief set a node with a container_or_node_type
@@ -2794,6 +2852,27 @@ namespace ljson {
 			throw error(error_type::key_not_found, "index: '{}' not found", array_index);
 
 		return arr->at(array_index);
+	}
+
+	expected<std::reference_wrapper<ljson::node>, ljson::error> node::try_at(const std::string& object_key) const noexcept
+	{
+		auto obj = this->try_as_object();
+		if (not obj)
+			return unexpected(obj.error());
+		auto itr = obj.value()->find(object_key);
+		if (itr == obj.value()->end())
+			return unexpected(error(error_type::key_not_found, std::format("key: '{}' not found", object_key)));
+
+		return std::ref(itr->second);
+	}
+
+	expected<std::reference_wrapper<ljson::node>, ljson::error> node::try_at(const size_t array_index) const noexcept
+	{
+		auto arr = this->try_as_array();
+		if (not arr)
+			return unexpected(error(error_type::key_not_found, "index: '{}' not found", array_index));
+
+		return std::ref(arr.value()->at(array_index));
 	}
 
 	template<typename container_or_node_type>

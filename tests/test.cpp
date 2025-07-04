@@ -1,3 +1,4 @@
+#include <functional>
 #include <initializer_list>
 #include <iostream>
 #include <list>
@@ -644,13 +645,12 @@ TEST_F(ljson_test, setting_values_asign_operator)
 	    {"key1", "value1"},
 	    {"key2", "value2"},
 	};
-	
+
 	node = node2;
 
 	EXPECT_TRUE(node.is_object());
 	EXPECT_EQ(node.at("key1").as_string(), "value1");
 	EXPECT_EQ(node.at("key2").as_string(), "value2");
-
 }
 
 TEST_F(ljson_test, setting_values_set_method)
@@ -727,12 +727,31 @@ TEST_F(ljson_test, setting_values_set_method)
 	    {"key1", "value1"},
 	    {"key2", "value2"},
 	};
-	
+
 	node.set(node2);
 
 	EXPECT_TRUE(node.is_object());
 	EXPECT_EQ(node.at("key1").as_string(), "value1");
 	EXPECT_EQ(node.at("key2").as_string(), "value2");
+
+	node.insert("key3", std::string("value3"));
+
+	ljson::expected<std::reference_wrapper<ljson::node>, ljson::error> node_ref = node.try_at("key3");
+	EXPECT_TRUE(node_ref);
+
+	ljson::node& n = node_ref.value().get();
+	n	       = std::string("value_x");
+
+	EXPECT_TRUE(node.contains("key3"));
+	EXPECT_EQ(node.at("key3").as_string(), "value_x");
+
+	node_ref.value().get().set(std::string("value_y"));
+
+	EXPECT_TRUE(node.contains("key3"));
+	EXPECT_EQ(node.at("key3").as_string(), "value_y");
+
+	node_ref.value().get() = true;
+	EXPECT_EQ(node.at("key3").as_boolean(), true);
 }
 
 int main(int argc, char** argv)
