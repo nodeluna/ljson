@@ -340,7 +340,7 @@ namespace ljson {
 			 * @param err holds the value of ljson::error_type
 			 * @param message the string message of the error
 			 */
-			error(error_type err, const std::string& message);
+			error(error_type err, const std::string& message) noexcept;
 
 			/**
 			 * @brief constructor
@@ -350,7 +350,7 @@ namespace ljson {
 			 * @tparam args_t the types of arguments for std::format()
 			 */
 			template<typename... args_t>
-			error(error_type err, std::format_string<args_t...> fmt, args_t&&... args);
+			error(error_type err, std::format_string<args_t...> fmt, args_t&&... args) noexcept;
 
 			/**
 			 * @brief get the string message of the error
@@ -368,7 +368,7 @@ namespace ljson {
 			 * @brief get the ljson::error_type of the error
 			 * @return get the ljson::error_type of the error
 			 */
-			error_type value();
+			error_type value() const noexcept;
 	};
 
 	enum class value_type {
@@ -932,18 +932,21 @@ namespace ljson {
 			/**
 			 * @brief access the ljson::value the ljson::node is holding, if it exists
 			 * @return ljson::value or ljson::error if it doesn't hold a ljson::value
+			 * @see as_value()
 			 */
 			expected<std::shared_ptr<class value>, error> try_as_value() const noexcept;
 
 			/**
 			 * @brief access the ljson::array the ljson::node is holding, if it exists
 			 * @return ljson::array or ljson::error if it doesn't hold a ljson::array
+			 * @see as_array()
 			 */
 			expected<std::shared_ptr<ljson::array>, error> try_as_array() const noexcept;
 
 			/**
 			 * @brief access the ljson::object the ljson::node is holding, if it exists
 			 * @return ljson::object or ljson::error if it doesn't hold a ljson::object
+			 * @see as_object()
 			 */
 			expected<std::shared_ptr<ljson::object>, error> try_as_object() const noexcept;
 
@@ -951,6 +954,7 @@ namespace ljson {
 			 * @brief access the ljson::value the ljson::node is holding, if it exists
 			 * @throw ljson::error if it doesn't hold ljson::value
 			 * @return std::shared_ptr<ljson::value>
+			 * @see try_as_value()
 			 */
 			std::shared_ptr<class value> as_value() const;
 
@@ -958,6 +962,7 @@ namespace ljson {
 			 * @brief access the ljson::array the ljson::node is holding, if it exists
 			 * @throw ljson::error if it doesn't hold ljson::array
 			 * @return std::shared_ptr<ljson::array>
+			 * @see try_as_array()
 			 */
 			std::shared_ptr<ljson::array> as_array() const;
 
@@ -965,6 +970,7 @@ namespace ljson {
 			 * @brief access the ljson::object the ljson::node is holding, if it exists
 			 * @throw ljson::error if it doesn't hold ljson::object
 			 * @return std::shared_ptr<ljson::object>
+			 * @see try_as_object()
 			 */
 			std::shared_ptr<ljson::object> as_object() const;
 
@@ -984,30 +990,35 @@ namespace ljson {
 			 * }
 			 * @ecpp
 			 * @return std::string or ljson::error if it doesn't hold a string
+			 * @see as_string()
 			 */
 			expected<std::string, error> try_as_string() const noexcept;
 
 			/**
 			 * @brief cast a node into a int64_t if it is holding ljson::value that is a json number (int64_t)
 			 * @return int64_t or ljson::error if it doesn't hold a string
+			 * @see as_integer()
 			 */
 			expected<int64_t, error> try_as_integer() const noexcept;
 
 			/**
 			 * @brief cast a node into a double if it is holding ljson::value that is a json number (double)
 			 * @return double or ljson::error if it doesn't hold a string
+			 * @see as_double()
 			 */
 			expected<double, error> try_as_double() const noexcept;
 
 			/**
 			 * @brief cast a node into a double if it is holding ljson::value that is a json number (double or int64_t)
 			 * @return double or ljson::error if it doesn't hold a string
+			 * @see as_number()
 			 */
 			expected<double, error> try_as_number() const noexcept;
 
 			/**
 			 * @brief cast a node into a bool if it is holding ljson::value that is a json boolean (bool)
 			 * @return bool or ljson::error if it doesn't hold a string
+			 * @see as_boolean()
 			 */
 			expected<bool, error> try_as_boolean() const noexcept;
 
@@ -1027,6 +1038,7 @@ namespace ljson {
 			 * }
 			 * @ecpp
 			 * @return ljson::null_type or ljson::error if it doesn't hold a null (ljson::null_type)
+			 * @see as_null()
 			 */
 			expected<null_type, error> try_as_null() const noexcept;
 
@@ -1034,6 +1046,7 @@ namespace ljson {
 			 * @brief cast a node into a string if it is holding ljson::value that is a json string (ljson::null_type)
 			 * @exception ljson::error if it doesn't hold a ljson::value and string
 			 * @return json null type
+			 * @see try_as_string()
 			 */
 			std::string as_string() const;
 
@@ -1041,6 +1054,7 @@ namespace ljson {
 			 * @brief cast a node into a int64_t if it is holding ljson::value that is a json number (int64_t)
 			 * @exception ljson::error if it doesn't hold a ljson::value and int64_t
 			 * @return json null type
+			 * @see try_as_integer()
 			 */
 			int64_t as_integer() const;
 
@@ -1048,6 +1062,7 @@ namespace ljson {
 			 * @brief cast a node into a double if it is holding ljson::value that is a json number (double)
 			 * @exception ljson::error if it doesn't hold a ljson::value and double
 			 * @return json null type
+			 * @see try_as_double()
 			 */
 			double as_double() const;
 
@@ -1055,6 +1070,7 @@ namespace ljson {
 			 * @brief cast a node into a double if it is holding ljson::value that is a json number (int64_t or double)
 			 * @exception ljson::error if it doesn't hold a ljson::value and (int64_t or double)
 			 * @return json null type
+			 * @see try_as_number()
 			 */
 			double as_number() const;
 
@@ -1062,6 +1078,7 @@ namespace ljson {
 			 * @brief cast a node into a bool if it is holding ljson::value that is a json boolean (bool)
 			 * @exception ljson::error if it doesn't hold a ljson::value and bool
 			 * @return json null type
+			 * @see try_as_boolean()
 			 */
 			bool as_boolean() const;
 
@@ -1069,6 +1086,7 @@ namespace ljson {
 			 * @brief cast a node into a ljson::null_type if it is holding ljson::value that is a json null (ljson::null_type)
 			 * @exception ljson::error if it doesn't hold a ljson::value and ljson::null_type
 			 * @return json null type
+			 * @see try_as_null()
 			 */
 			null_type as_null() const;
 
@@ -1190,6 +1208,7 @@ namespace ljson {
 			 * @brief access the node at the specified object key
 			 * @param object_key json key to access in an object
 			 * @return ljson::node& at the specified key
+			 * @see try_at()
 			 */
 			class node& at(const std::string& object_key) const;
 
@@ -1197,6 +1216,7 @@ namespace ljson {
 			 * @brief access the node at the specified array index
 			 * @param array_index json index to access in an array
 			 * @return ljson::node& at the specified index
+			 * @see try_at()
 			 */
 			class node& at(const size_t array_index) const;
 
@@ -1222,6 +1242,7 @@ namespace ljson {
 			 * }
 			 * @ecpp
 			 * @return either std::reference_wrapper<ljson::node> if the node was found or ljson::error if not
+			 * @see at()
 			 */
 			expected<std::reference_wrapper<ljson::node>, ljson::error> try_at(const std::string& object_key) const noexcept;
 
@@ -1247,6 +1268,7 @@ namespace ljson {
 			 * }
 			 * @ecpp
 			 * @return either std::reference_wrapper<ljson::node> if the node was found or ljson::error if not
+			 * @see at()
 			 */
 			expected<std::reference_wrapper<ljson::node>, ljson::error> try_at(const size_t array_index) const noexcept;
 
@@ -3320,12 +3342,12 @@ namespace ljson {
 	{
 	}
 
-	error::error(error_type err, const std::string& message) : err_type(err), msg(message)
+	error::error(error_type err, const std::string& message) noexcept : err_type(err), msg(message)
 	{
 	}
 
 	template<typename... args_t>
-	error::error(error_type err, std::format_string<args_t...> fmt, args_t&&... args)
+	error::error(error_type err, std::format_string<args_t...> fmt, args_t&&... args) noexcept
 	    : err_type(err), msg(std::format(fmt, std::forward<args_t>(args)...))
 	{
 	}
@@ -3340,7 +3362,7 @@ namespace ljson {
 		return msg;
 	}
 
-	error_type error::value()
+	error_type error::value() const noexcept
 	{
 		return err_type;
 	}

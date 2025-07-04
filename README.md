@@ -147,6 +147,53 @@ int main() {
 
 ```
 
+
+
+### exception free key access
+
+```cpp
+
+#include <ljson.hpp>
+#include <exception>
+
+int main() {
+	// making a json object
+	ljson::node j2 = {
+		 {"simple_key", "meow_value"},
+		 {"array_key", ljson::node({ // ljson::node() can hold an object, array's values or a simple value
+				 "arr_key1",
+				 "arr_key2",
+				 "arr_key3",
+				 "arr_key4",
+				 "arr_key5",
+				 })},
+		 {"object_key", ljson::node({
+				 {"obj_key1", "value1"},
+				 {"obj_key2", "value2"},
+				 {"obj_key3", "value3"},
+				 })},
+	};
+
+	// this function adds an object to a key
+	node.insert("new_object", j2);
+
+	ljson::expected<std::reference_wrapper<ljson::node>, ljson::error> simple_node = node.try_at("simple_key");
+	if (simple_node)
+	{
+		ljson::node& node_ref = simple_node.value().get();
+		ljson::expected<std::string, ljson::error> maybe_string = node_ref.try_as_string();
+		if (maybe_string)
+		{
+			std::println("{}", maybe_value.value()); // prints: meow_value
+		}
+	}
+}
+
+```
+
+
+
+
 ### casting to a json array and iteration
 ```cpp
 #include <ljson.hpp>
@@ -212,6 +259,29 @@ int main() {
 }
 
 ```
+
+### exception free casting
+```cpp
+#include <ljson.hpp>
+
+// add "try_" in front of any casting method that throws
+
+int main()
+{
+	ljson::node node;
+
+	// throws
+	int number = node.as_integer();
+	std::string number = node.as_string();
+
+
+	// doesn't throw
+	ljson::expected<int, ljson::error> number = node.try_as_integer();
+	ljson::expected<std::string, ljson::error> number = node.try_as_string();
+}
+
+```
+
 
 ### inserting std library containers into a node
 ```cpp
