@@ -1510,11 +1510,11 @@ namespace ljson {
 			json_array _array;
 
 		public:
-			explicit array(const json_array& arr) : _array(arr)
+			explicit array(const json_array& arr) noexcept : _array(arr)
 			{
 			}
 
-			explicit array()
+			explicit array() noexcept
 			{
 			}
 
@@ -1548,12 +1548,12 @@ namespace ljson {
 				return _array.back();
 			}
 
-			size_t size()
+			size_t size() const noexcept
 			{
 				return _array.size();
 			}
 
-			bool empty()
+			bool empty() const noexcept
 			{
 				return _array.empty();
 			}
@@ -1588,61 +1588,116 @@ namespace ljson {
 			json_object _object;
 
 		public:
+			/**
+			 * @brief constructor for ljson::object
+			 */
 			explicit object() : _object(json_object{})
 			{
 			}
 
-			ljson::node insert(const std::string& key, const class node& element)
+			/**
+			 * @brief insert ljson::node into key
+			 * @param key the json key to insert at
+			 * @param element the ljson::node to be inserted
+			 * @return a reference of the inserted ljson::node
+			 */
+			ljson::node& insert(const std::string& key, const class node& element)
 			{
-				auto itr = _object[key] = element;
-				return itr;
+				return _object[key] = element;
 			}
 
+			/**
+			 * @brief remove a key with its associated node from the ljson::object
+			 * @param key the json key to be removed
+			 * @return number of keys removed
+			 */
 			json_object::size_type erase(const std::string& key)
 			{
 				return _object.erase(key);
 			}
 
+			/**
+			 * @brief remove an iterator with its associated node from the ljson::object
+			 * @param pos the iterator to be removed
+			 * @return iterator following the last removed iterator
+			 */
 			json_object::iterator erase(const json_object::iterator pos)
 			{
 				return _object.erase(pos);
 			}
 
+			/**
+			 * @brief remove a range with its associated ljson::node's from the ljson::object
+			 * @param begin the beginning of the range to be removed
+			 * @param end the end of the range to be removed
+			 * @return iterator following the last removed iterator
+			 */
 			json_object::iterator erase(const json_object::iterator begin, const json_object::iterator end)
 			{
 				return _object.erase(begin, end);
 			}
 
-			size_t size()
+			/**
+			 * @brief get the number of keys
+			 * @return the number of keys
+			 */
+			size_t size() const noexcept
 			{
 				return _object.size();
 			}
 
-			bool empty()
+			/**
+			 * @brief check if the ljson::object is empty
+			 * @return true if it is
+			 */
+			bool empty() const noexcept
 			{
 				return _object.empty();
 			}
 
+			/**
+			 * @brief find a key
+			 * @return iterator of the found key found or end()
+			 */
 			json_object::iterator find(const std::string& key)
 			{
 				return _object.find(key);
 			}
 
+			/**
+			 * @brief returns an the first iterator
+			 * @return the first iterator
+			 */
 			json_object::iterator begin()
 			{
 				return _object.begin();
 			}
 
+			/**
+			 * @brief returns an iterator past the last key
+			 * @return iterator past the last key
+			 */
 			json_object::iterator end()
 			{
 				return _object.end();
 			}
 
+			/**
+			 * @brief access specified key *with* bounds checking
+			 * @param key to be accessed
+			 * @return a reference to the ljson::node associated to the key
+			 * @throw std::out_of_range if the container doesn't have the key
+			 */
 			class ljson::node& at(const std::string& key)
 			{
-				return _object[key];
+				return _object.at(key);
 			}
 
+			/**
+			 * @brief access specified key *without* bounds checking or insert the key if it doesn't exist
+			 * @param key to be accessed
+			 * @return a reference to the ljson::node associated to the key
+			 */
 			class ljson::node& operator[](const std::string& key)
 			{
 				return _object[key];
