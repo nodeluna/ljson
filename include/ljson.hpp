@@ -535,16 +535,30 @@ namespace ljson {
 			}
 
 		public:
+			/**
+			 * @brief constructor for ljson::value
+			 * @param val json value to be set
+			 * @tparam is_allowed_value_type the type of the json value
+			 */
 			template<is_allowed_value_type val_type>
 			value(const val_type& val) noexcept
 			{
 				this->set_state(val);
 			}
 
+			/**
+			 * @brief copy constructor for ljson::value
+			 * @param other ljson::value to be copied
+			 */
 			value(const value& other) : _value(other._value), _type(other._type)
 			{
 			}
 
+			/**
+			 * @brief copy assignment for ljson::value
+			 * @param other ljson::value to be copied
+			 * @return the address of the modified ljson::value
+			 */
 			value& operator=(const value& other)
 			{
 				_value = other._value;
@@ -552,10 +566,19 @@ namespace ljson {
 				return *this;
 			}
 
+			/**
+			 * @brief move constructor for ljson::value
+			 * @param other ljson::value to be moved
+			 */
 			value(const value&& other) : _value(std::move(other._value)), _type(other._type)
 			{
 			}
 
+			/**
+			 * @brief move assignment for ljson::value
+			 * @param other ljson::value to be moved
+			 * @return the address of the modified ljson::value
+			 */
 			value& operator=(const value&& other)
 			{
 				_value = std::move(other._value);
@@ -563,61 +586,125 @@ namespace ljson {
 				return *this;
 			}
 
-			value() : _value(monostate()), _type(value_type::none)
+			/**
+			 * @brief constructor which sets an empty ljson::value
+			 */
+			value() noexcept : _value(monostate()), _type(value_type::none)
 			{
 			}
 
-			ljson::value_type type() const
+			/**
+			 * @brief gets the type of the stored json value
+			 * @return ljson::value_type of the stored json value
+			 */
+			ljson::value_type type() const noexcept
 			{
 				return _type;
 			}
 
+			/**
+			 * @brief sets the value and type of ljson::value
+			 * @param val json value to be set
+			 * @tparam is_allowed_value_type the type of the json value
+			 */
 			template<is_allowed_value_type val_type>
 			void set_value_type(const val_type& val) noexcept
 			{
 				this->set_state(val);
 			}
 
-			expected<monostate, error> set_value_type(const std::string& val, value_type t)
+			/**
+			 * @brief sets the value and type of ljson::value
+			 * @param val json value to be set
+			 * @param type json type (ljson::value_type) to be set
+			 * @return ljson::monostate or ljson::error if the value wasn't set (wrong type was provided)
+			 */
+			expected<monostate, error> set_value_type(const std::string& val, value_type type)
 			{
-				return this->set_state(val, t);
+				return this->set_state(val, type);
 			}
 
-			bool is_string() const
+			/**
+			 * @brief checks if ljson::value is holding json string (std::string)
+			 * @return true if it does
+			 */
+			bool is_string() const noexcept
 			{
 				return std::holds_alternative<std::string>(_value);
 			}
 
-			bool is_number() const
+			/**
+			 * @brief checks if ljson::value is holding json number (double or int64_t)
+			 * @return true if it does
+			 */
+			bool is_number() const noexcept
 			{
 				return std::holds_alternative<double>(_value) || std::holds_alternative<int64_t>(_value);
 			}
 
-			bool is_double() const
+			/**
+			 * @brief checks if ljson::value is holding json number (double)
+			 * @return true if it does
+			 */
+			bool is_double() const noexcept
 			{
 				return std::holds_alternative<double>(_value);
 			}
 
-			bool is_integer() const
+			/**
+			 * @brief checks if ljson::value is holding json number (int64_t)
+			 * @return true if it does
+			 */
+			bool is_integer() const noexcept
 			{
 				return std::holds_alternative<int64_t>(_value);
 			}
 
-			bool is_boolean() const
+			/**
+			 * @brief checks if ljson::value is holding json boolean (bool)
+			 * @return true if it does
+			 */
+			bool is_boolean() const noexcept
 			{
 				return std::holds_alternative<bool>(_value);
 			}
 
-			bool is_null() const
+			/**
+			 * @brief checks if ljson::value is holding json null (ljson::null_type)
+			 * @return true if it does
+			 */
+			bool is_null() const noexcept
 			{
 				return std::holds_alternative<null_type>(_value);
 			}
 
-			bool is_empty() const
+			/**
+			 * @brief checks if ljson::value is not holding json value (ljson::monostate)
+			 * @return true if it does
+			 */
+			bool is_empty() const noexcept
 			{
 				return std::holds_alternative<monostate>(_value);
 			}
 
+			/**
+			 * @brief cast ljson::value into a std::string if it is holding a json string (std::string)
+			 * @detail @cpp
+			 * ljson::expected<std::string, error> string = value.try_as_string();
+			 * if (not string)
+			 * {
+			 *	// handle error
+			 *	std::println("{}", string.error().message());
+			 * }
+			 * else
+			 * {
+			 *	// success
+			 *	std::string string_value = string.value();
+			 * }
+			 * @ecpp
+			 * @return std::string or ljson::error if it doesn't hold a string
+			 * @see as_string()
+			 */
 			expected<std::string, error> try_as_string() noexcept
 			{
 				if (not this->is_string())
@@ -628,6 +715,11 @@ namespace ljson {
 				return std::get<std::string>(_value);
 			}
 
+			/**
+			 * @brief cast ljson::value into a double if it is holding a json number (double or int64_t)
+			 * @return double or ljson::error if it doesn't hold a number
+			 * @see as_number()
+			 */
 			expected<double, error> try_as_number() noexcept
 			{
 				if (not this->is_number())
@@ -641,6 +733,11 @@ namespace ljson {
 					return std::get<int64_t>(_value);
 			}
 
+			/**
+			 * @brief cast ljson::value into a int64_t if it is holding a json number (int64_t)
+			 * @return int64_t or ljson::error if it doesn't hold a number
+			 * @see as_integer()
+			 */
 			expected<int64_t, error> try_as_integer() noexcept
 			{
 				if (not this->is_integer())
@@ -651,6 +748,11 @@ namespace ljson {
 				return std::get<int64_t>(_value);
 			}
 
+			/**
+			 * @brief cast ljson::value into a double if it is holding a json number (double)
+			 * @return double or ljson::error if it doesn't hold a number
+			 * @see as_double()
+			 */
 			expected<double, error> try_as_double() noexcept
 			{
 				if (not this->is_double())
@@ -661,6 +763,11 @@ namespace ljson {
 				return std::get<double>(_value);
 			}
 
+			/**
+			 * @brief cast ljson::value into a bool if it is holding a json boolean (bool)
+			 * @return bool or ljson::error if it doesn't hold a boolean
+			 * @see as_boolean()
+			 */
 			expected<bool, error> try_as_boolean() noexcept
 			{
 				if (not this->is_boolean())
@@ -671,6 +778,11 @@ namespace ljson {
 				return std::get<bool>(_value);
 			}
 
+			/**
+			 * @brief cast ljson::value into a ljson::null_type if it is holding a json null (ljson::null_type)
+			 * @return ljson::null_type or ljson::error if it doesn't hold a null
+			 * @see as_null()
+			 */
 			expected<null_type, error> try_as_null() noexcept
 			{
 				if (not this->is_null())
@@ -681,6 +793,12 @@ namespace ljson {
 				return std::get<null_type>(_value);
 			}
 
+			/**
+			 * @brief cast ljson::value into a string if it is holding a json string (std::string)
+			 * @exception ljson::error if it doesn't json string
+			 * @return json string
+			 * @see try_as_string()
+			 */
 			std::string as_string()
 			{
 				auto ok = this->try_as_string();
@@ -690,6 +808,12 @@ namespace ljson {
 				return ok.value();
 			}
 
+			/**
+			 * @brief cast ljson::value into a number if it is holding a json number (double or int64_t)
+			 * @exception ljson::error if it doesn't hold json number
+			 * @return json number
+			 * @see try_as_number()
+			 */
 			double as_number()
 			{
 				auto ok = this->try_as_number();
@@ -699,6 +823,12 @@ namespace ljson {
 				return ok.value();
 			}
 
+			/**
+			 * @brief cast ljson::value into a number if it is holding a json number (int64_t)
+			 * @exception ljson::error if it doesn't hold json number
+			 * @return json number
+			 * @see try_as_integer()
+			 */
 			int64_t as_integer()
 			{
 				auto ok = this->try_as_integer();
@@ -708,6 +838,12 @@ namespace ljson {
 				return ok.value();
 			}
 
+			/**
+			 * @brief cast ljson::value into a number if it is holding a json number (double)
+			 * @exception ljson::error if it doesn't hold json number
+			 * @return json number
+			 * @see try_as_double()
+			 */
 			double as_double()
 			{
 				auto ok = this->try_as_double();
@@ -717,6 +853,12 @@ namespace ljson {
 				return ok.value();
 			}
 
+			/**
+			 * @brief cast ljson::value into a boolean if it is holding a json boolean (bool)
+			 * @exception ljson::error if it doesn't hold json boolean
+			 * @return json boolean
+			 * @see try_as_boolean()
+			 */
 			bool as_boolean()
 			{
 				auto ok = this->try_as_boolean();
@@ -726,6 +868,12 @@ namespace ljson {
 				return ok.value();
 			}
 
+			/**
+			 * @brief cast ljson::value into a null if it is holding a json null (ljson::null_type)
+			 * @exception ljson::error if it doesn't hold json null
+			 * @return json null
+			 * @see try_as_null()
+			 */
 			null_type as_null()
 			{
 				auto ok = this->try_as_null();
@@ -735,6 +883,10 @@ namespace ljson {
 				return ok.value();
 			}
 
+			/**
+			 * @brief cast the json value into a std::string
+			 * @return string representation of the value
+			 */
 			std::string stringify() const noexcept
 			{
 				if (this->is_double())
@@ -796,6 +948,10 @@ namespace ljson {
 				}
 			}
 
+			/**
+			 * @brief gets string representation of ljson::value_type of the internal value
+			 * @return string name of the value_type
+			 */
 			std::string type_name() const noexcept
 			{
 				if (this->is_string())
@@ -1045,7 +1201,7 @@ namespace ljson {
 			/**
 			 * @brief cast a node into a string if it is holding ljson::value that is a json string (ljson::null_type)
 			 * @exception ljson::error if it doesn't hold a ljson::value and string
-			 * @return json null type
+			 * @return json string
 			 * @see try_as_string()
 			 */
 			std::string as_string() const;
@@ -1053,7 +1209,7 @@ namespace ljson {
 			/**
 			 * @brief cast a node into a int64_t if it is holding ljson::value that is a json number (int64_t)
 			 * @exception ljson::error if it doesn't hold a ljson::value and int64_t
-			 * @return json null type
+			 * @return json number
 			 * @see try_as_integer()
 			 */
 			int64_t as_integer() const;
@@ -1061,7 +1217,7 @@ namespace ljson {
 			/**
 			 * @brief cast a node into a double if it is holding ljson::value that is a json number (double)
 			 * @exception ljson::error if it doesn't hold a ljson::value and double
-			 * @return json null type
+			 * @return json number
 			 * @see try_as_double()
 			 */
 			double as_double() const;
@@ -1069,7 +1225,7 @@ namespace ljson {
 			/**
 			 * @brief cast a node into a double if it is holding ljson::value that is a json number (int64_t or double)
 			 * @exception ljson::error if it doesn't hold a ljson::value and (int64_t or double)
-			 * @return json null type
+			 * @return json number
 			 * @see try_as_number()
 			 */
 			double as_number() const;
@@ -1077,7 +1233,7 @@ namespace ljson {
 			/**
 			 * @brief cast a node into a bool if it is holding ljson::value that is a json boolean (bool)
 			 * @exception ljson::error if it doesn't hold a ljson::value and bool
-			 * @return json null type
+			 * @return json boolean
 			 * @see try_as_boolean()
 			 */
 			bool as_boolean() const;
@@ -1085,7 +1241,7 @@ namespace ljson {
 			/**
 			 * @brief cast a node into a ljson::null_type if it is holding ljson::value that is a json null (ljson::null_type)
 			 * @exception ljson::error if it doesn't hold a ljson::value and ljson::null_type
-			 * @return json null type
+			 * @return json null
 			 * @see try_as_null()
 			 */
 			null_type as_null() const;
